@@ -1,0 +1,16 @@
+{
+  "id": "default",
+  "name": "Default Pet",
+  "renderer": "static-image",
+  "version": 1,
+  "defaultWidth": 220,
+  "defaultHeight": 250,
+  "scale": 1,
+  "actions": {
+    "idle": {
+      "type": "static",
+      "asset": "assets/placeholder.svg",
+      "loop": true
+    }
+  }
+}
