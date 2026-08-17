@@ -1,15 +1,18 @@
 import type { LoadedCharacter, LoadedCharacterAction } from '../../../../../shared/character'
+import type { PetAction } from '../../../../../shared/pet-action'
 
 interface StaticImageRendererProps {
   character: LoadedCharacter
   action: LoadedCharacterAction
-  actionName: string
+  requestedActionName: PetAction
+  renderedActionName: string
 }
 
 export function StaticImageRenderer({
   character,
   action,
-  actionName
+  requestedActionName,
+  renderedActionName
 }: StaticImageRendererProps): React.JSX.Element {
   const { manifest } = character
   const width = manifest.defaultWidth * manifest.scale
@@ -22,7 +25,11 @@ export function StaticImageRenderer({
       width={width}
       height={height}
       draggable={false}
-      alt={`${manifest.name}, ${actionName}`}
+      alt={
+        requestedActionName === renderedActionName
+          ? `${manifest.name}, ${requestedActionName}`
+          : `${manifest.name}, ${requestedActionName}, using ${renderedActionName} fallback`
+      }
     />
   )
 }

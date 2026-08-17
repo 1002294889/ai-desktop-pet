@@ -61,18 +61,38 @@ body {
   -webkit-user-drag: none;
 }
 
-.character-debug-label {
+.temporary-action-indicator {
   position: absolute;
-  bottom: 4px;
-  left: 50%;
-  max-width: 270px;
-  padding: 4px 8px;
-  overflow: hidden;
-  border-radius: 8px;
-  color: white;
-  background: rgb(30 27 75 / 78%);
-  font-size: 0.62rem;
+  top: 34px;
+  right: 12px;
+  display: grid;
+  min-width: 38px;
+  min-height: 30px;
+  padding: 5px 8px;
+  place-items: center;
+  border: 2px solid rgb(255 255 255 / 90%);
+  border-radius: 50%;
+  color: #4c1d95;
+  background: rgb(255 255 255 / 90%);
+  box-shadow: 0 6px 14px rgb(49 46 129 / 18%);
+  font-size: 0.72rem;
   font-weight: 700;
+}
+
+.pet-action-debug {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  z-index: 2;
+  max-width: 290px;
+  padding: 4px 7px;
+  overflow: hidden;
+  border-radius: 7px;
+  color: white;
+  background: rgb(30 27 75 / 82%);
+  font-size: 0.56rem;
+  font-weight: 700;
+  pointer-events: none;
   text-overflow: ellipsis;
   white-space: nowrap;
   transform: translateX(-50%);
@@ -90,4 +110,129 @@ body {
   font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
+}
+
+.character-renderer[data-action='walk_left'] .character-asset {
+  animation: action-walk-left 0.6s ease-in-out infinite alternate;
+}
+
+.character-renderer[data-action='walk_right'] .character-asset {
+  animation: action-walk-right 0.6s ease-in-out infinite alternate;
+}
+
+.character-renderer[data-action='sit'] .character-asset {
+  transform: translateY(12px) scaleY(0.9);
+  transform-origin: bottom center;
+}
+
+.character-renderer[data-action='sleep'] .character-asset {
+  opacity: 0.86;
+  transform: translateY(10px) rotate(2deg) scale(0.96);
+  transform-origin: bottom center;
+}
+
+.character-renderer[data-action='wake'] .character-asset {
+  animation: action-wake 0.55s ease-in-out infinite alternate;
+}
+
+.character-renderer[data-action='happy'] .character-asset {
+  animation: action-happy 0.55s ease-in-out infinite;
+}
+
+.character-renderer[data-action='angry'] .character-asset {
+  animation: action-angry 0.22s ease-in-out infinite;
+  filter: saturate(1.35) hue-rotate(285deg);
+}
+
+.character-renderer[data-action='jump'] .character-asset {
+  animation: action-jump 0.72s ease-in-out infinite;
+}
+
+.character-renderer[data-action='wave'] .character-asset {
+  animation: action-wave 0.55s ease-in-out infinite alternate;
+  transform-origin: bottom center;
+}
+
+.character-renderer[data-action='talk'] .character-asset {
+  animation: action-talk 0.4s ease-in-out infinite alternate;
+}
+
+.character-renderer[data-action='dragged'] .character-asset {
+  filter: brightness(1.08) saturate(1.2);
+  transform: rotate(-4deg) scale(1.04);
+}
+
+@keyframes action-walk-left {
+  from {
+    transform: translateX(3px) rotate(1deg);
+  }
+  to {
+    transform: translateX(-13px) rotate(-2deg);
+  }
+}
+
+@keyframes action-walk-right {
+  from {
+    transform: translateX(-3px) rotate(-1deg);
+  }
+  to {
+    transform: translateX(13px) rotate(2deg);
+  }
+}
+
+@keyframes action-wake {
+  from {
+    transform: scale(0.96);
+  }
+  to {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes action-happy {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-9px) scale(1.025);
+  }
+}
+
+@keyframes action-angry {
+  0%,
+  100% {
+    transform: translateX(-4px) rotate(-1deg);
+  }
+  50% {
+    transform: translateX(4px) rotate(1deg);
+  }
+}
+
+@keyframes action-jump {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(0.96);
+  }
+  45% {
+    transform: translateY(-28px) scaleY(1.04);
+  }
+}
+
+@keyframes action-wave {
+  from {
+    transform: rotate(-4deg);
+  }
+  to {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes action-talk {
+  from {
+    transform: scale(0.985);
+  }
+  to {
+    transform: scale(1.025);
+  }
 }
