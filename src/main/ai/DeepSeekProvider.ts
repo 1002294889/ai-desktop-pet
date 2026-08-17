@@ -1,5 +1,11 @@
 import type { AIChatMessage, AIChatRequest, AIChatResponse, AIProvider } from './ai-provider'
 import { AIProviderError } from './ai-provider-error'
+import {
+  parsePetActionToolCalls,
+  PLAY_PET_ACTION_TOOL,
+  type DeepSeekFunctionToolCall,
+  type DeepSeekToolResultMessage
+} from './deepseek-pet-action-tool'
 
 interface DeepSeekProviderOptions {
   apiKey: string
@@ -9,13 +15,25 @@ interface DeepSeekProviderOptions {
   fetchImplementation?: typeof fetch
 }
 
-interface DeepSeekChatCompletion {
-  choices?: Array<{
-    message?: {
-      content?: unknown
-    }
-  }>
+interface DeepSeekCompletionMessage {
+  content?: unknown
+  tool_calls?: unknown
 }
+
+interface DeepSeekChatCompletion {
+  choices?: Array<{ message?: DeepSeekCompletionMessage }>
+}
+
+interface DeepSeekAssistantToolCallMessage {
+  role: 'assistant'
+  content: string | null
+  tool_calls: DeepSeekFunctionToolCall[]
+}
+
+type DeepSeekRequestMessage =
+  | AIChatMessage
+  | DeepSeekAssistantToolCallMessage
+  | DeepSeekToolResultMessage
 
 export class DeepSeekProvider implements AIProvider {
   readonly id = 'deepseek' as const
@@ -51,46 +69,46 @@ export class DeepSeekProvider implements AIProvider {
     request.signal?.addEventListener('abort', handleCallerAbort, { once: true })
 
     try {
-      const response = await this.fetchImplementation(this.endpoint, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: request.messages.map(toDeepSeekMessage),
-          thinking: { type: 'disabled' },
-          max_tokens: 350,
-          stream: false
-        }),
-        signal: requestController.signal
-      })
+      const initialMessage = await this.createCompletion(
+        request.messages.map(toDeepSeekMessage),
+        'auto',
+        requestController.signal
+      )
+      const parsedToolCalls = parsePetActionToolCalls(initialMessage.tool_calls)
 
-      if (!response.ok) {
-        throw createHttpError(response.status)
+      if (parsedToolCalls.toolCalls.length === 0) {
+        return {
+          text: getRequiredTextContent(initialMessage.content),
+          ...(parsedToolCalls.rejected.length > 0
+            ? { rejectedActionRequests: parsedToolCalls.rejected }
+            : {})
+        }
       }
 
-      let completion: DeepSeekChatCompletion
+      const finalMessage = await this.createCompletion(
+        [
+          ...request.messages.map(toDeepSeekMessage),
+          {
+            role: 'assistant',
+            content:
+              typeof initialMessage.content === 'string' ? initialMessage.content : null,
+            tool_calls: parsedToolCalls.toolCalls
+          },
+          ...parsedToolCalls.toolResults
+        ],
+        'none',
+        requestController.signal
+      )
 
-      try {
-        completion = (await response.json()) as DeepSeekChatCompletion
-      } catch (error: unknown) {
-        throw new AIProviderError('malformed-response', {
-          cause: error,
-          technicalMessage: 'DeepSeek returned a non-JSON success response.'
-        })
+      return {
+        text: getRequiredTextContent(finalMessage.content),
+        ...(parsedToolCalls.actions.length > 0
+          ? { actions: parsedToolCalls.actions }
+          : {}),
+        ...(parsedToolCalls.rejected.length > 0
+          ? { rejectedActionRequests: parsedToolCalls.rejected }
+          : {})
       }
-
-      const content = completion.choices?.[0]?.message?.content
-
-      if (typeof content !== 'string' || !content.trim()) {
-        throw new AIProviderError('malformed-response', {
-          technicalMessage: 'DeepSeek response did not contain choices[0].message.content.'
-        })
-      }
-
-      return { text: content.trim() }
     } catch (error: unknown) {
       if (error instanceof AIProviderError) {
         throw error
@@ -110,10 +128,69 @@ export class DeepSeekProvider implements AIProvider {
       request.signal?.removeEventListener('abort', handleCallerAbort)
     }
   }
+
+  private async createCompletion(
+    messages: readonly DeepSeekRequestMessage[],
+    toolChoice: 'auto' | 'none',
+    signal: AbortSignal
+  ): Promise<DeepSeekCompletionMessage> {
+    const response = await this.fetchImplementation(this.endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages,
+        thinking: { type: 'disabled' },
+        max_tokens: 350,
+        tools: [PLAY_PET_ACTION_TOOL],
+        tool_choice: toolChoice,
+        stream: false
+      }),
+      signal
+    })
+
+    if (!response.ok) {
+      throw createHttpError(response.status)
+    }
+
+    let completion: DeepSeekChatCompletion
+
+    try {
+      completion = (await response.json()) as DeepSeekChatCompletion
+    } catch (error: unknown) {
+      throw new AIProviderError('malformed-response', {
+        cause: error,
+        technicalMessage: 'DeepSeek returned a non-JSON success response.'
+      })
+    }
+
+    const message = completion.choices?.[0]?.message
+
+    if (typeof message !== 'object' || message === null) {
+      throw new AIProviderError('malformed-response', {
+        technicalMessage: 'DeepSeek response did not contain choices[0].message.'
+      })
+    }
+
+    return message
+  }
 }
 
 function toDeepSeekMessage(message: AIChatMessage): AIChatMessage {
   return { role: message.role, content: message.content }
+}
+
+function getRequiredTextContent(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new AIProviderError('malformed-response', {
+      technicalMessage: 'DeepSeek response did not contain a non-empty text reply.'
+    })
+  }
+
+  return value.trim()
 }
 
 function createHttpError(status: number): AIProviderError {

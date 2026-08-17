@@ -6,6 +6,8 @@ import { autonomousBehaviorController } from './behavior/autonomous-behavior-con
 import { useAutonomousBehaviorState } from './behavior/useAutonomousBehaviorState'
 import { useDeveloperChatShortcuts } from './chat/useDeveloperChatShortcuts'
 import { usePetChatBridge } from './chat/usePetChatBridge'
+import { aiActionSequenceController } from './chat/ai-action-sequence-controller-instance'
+import { useAIActionSequenceState } from './chat/useAIActionSequenceState'
 import { CharacterRenderer } from './components/character/CharacterRenderer'
 import { petInteractionController } from './interaction/pet-interaction-controller-instance'
 import { usePetInteraction } from './interaction/usePetInteraction'
@@ -21,6 +23,7 @@ export function App(): React.JSX.Element {
   const actionState = usePetActionState(petActionController)
   const behaviorState = useAutonomousBehaviorState(autonomousBehaviorController)
   const interactionState = usePetInteractionState(petInteractionController)
+  const aiActionSequenceState = useAIActionSequenceState(aiActionSequenceController)
   const interactionBindings = usePetInteraction(petInteractionController)
   const chatState = usePetChatBridge()
   const handledInteractionCount = useRef(0)
@@ -145,6 +148,9 @@ export function App(): React.JSX.Element {
             {interactionState.currentInteraction} · Hover: {interactionState.isHovered ? 1 : 0} · Interaction events:{' '}
             {interactionState.interactionCount} · Chat: {chatState?.mode ?? 'loading'}/
             {chatState?.placement ?? 'unknown'}
+            {' · '}AI actions: {aiActionSequenceState.status}/
+            {aiActionSequenceState.activeAction ?? 'none'} →{' '}
+            {aiActionSequenceState.pendingActions.join(',') || 'none'}
           </output>
         ) : null}
       </section>

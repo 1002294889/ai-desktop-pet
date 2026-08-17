@@ -1,6 +1,7 @@
 import type { ChatMode } from '../../../shared/chat'
 import type { AutonomousBehaviorController } from '../behavior/AutonomousBehaviorController'
 import type { PetActionController } from '../pet/PetActionController'
+import type { AIActionSequenceController } from './AIActionSequenceController'
 
 const CHAT_CLOSE_RESUME_DELAY_MS = 750
 
@@ -8,13 +9,16 @@ export class ChatSessionCoordinator {
   private isChatOpen = false
   private shouldResumeAutonomy = false
   private isEnforcingPause = false
+  private isWaitingForAISequence = false
   private resumeTimer: ReturnType<typeof setTimeout> | undefined
 
   constructor(
     private readonly actionController: PetActionController,
-    private readonly behaviorController: AutonomousBehaviorController
+    private readonly behaviorController: AutonomousBehaviorController,
+    private readonly aiActionSequenceController: AIActionSequenceController
   ) {
     behaviorController.subscribe(this.handleBehaviorStateChange)
+    aiActionSequenceController.subscribe(this.handleAIActionSequenceStateChange)
   }
 
   handleMode(mode: ChatMode): void {
@@ -32,7 +36,28 @@ export class ChatSessionCoordinator {
     this.isChatOpen = nextIsChatOpen
 
     if (nextIsChatOpen) {
+      this.isWaitingForAISequence = false
       this.enforcePause()
+      return
+    }
+
+    if (this.aiActionSequenceController.isEngaged()) {
+      this.isWaitingForAISequence = true
+      this.aiActionSequenceController.releaseForAutonomy()
+
+      if (this.isWaitingForAISequence && !this.aiActionSequenceController.isEngaged()) {
+        this.isWaitingForAISequence = false
+        this.completeChatClose()
+      }
+
+      return
+    }
+
+    this.completeChatClose()
+  }
+
+  private completeChatClose(): void {
+    if (this.isChatOpen) {
       return
     }
 
@@ -52,6 +77,18 @@ export class ChatSessionCoordinator {
   private readonly handleBehaviorStateChange = (): void => {
     if (this.isChatOpen) {
       this.enforcePause()
+    }
+  }
+
+  private readonly handleAIActionSequenceStateChange = (): void => {
+    if (this.isChatOpen) {
+      this.enforcePause()
+      return
+    }
+
+    if (this.isWaitingForAISequence && !this.aiActionSequenceController.isEngaged()) {
+      this.isWaitingForAISequence = false
+      this.completeChatClose()
     }
   }
 

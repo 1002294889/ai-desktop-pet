@@ -5,7 +5,10 @@ import { BrowserWindow } from 'electron'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import type { AIProviderSelection } from '../ai/provider-factory'
 import { AIProviderError } from '../ai/ai-provider-error'
-import { ChatController } from '../chat/ChatController'
+import {
+  ChatController,
+  type ChatProviderReplyDiagnostics
+} from '../chat/ChatController'
 import { registerChatHandlers } from '../ipc/chat'
 import { registerPetMovementHandlers } from '../ipc/pet-movement'
 import { registerPetPointerDragHandlers } from '../ipc/pet-pointer-drag'
@@ -61,7 +64,8 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     characterName: options.characterName,
     provider: options.aiProvider.provider,
     providerInfo: options.aiProvider.info,
-    onProviderError: options.reportProviderErrors ? logProviderError : undefined
+    onProviderError: options.reportProviderErrors ? logProviderError : undefined,
+    onProviderReply: options.reportProviderErrors ? logProviderReply : undefined
   })
   const chatWindowController = new ChatWindowController(window, chatController)
   const unregisterMovementHandlers = registerPetMovementHandlers(window, movementController)
@@ -74,9 +78,9 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     chatController,
     chatWindowController
   )
-  const unsubscribeFromChatReactions = chatController.subscribeToPetReactions((action) => {
+  const unsubscribeFromChatActions = chatController.subscribeToPetActions((actions) => {
     if (!window.isDestroyed()) {
-      window.webContents.send(IPC_CHANNELS.chatPetReaction, action)
+      window.webContents.send(IPC_CHANNELS.chatPetActions, actions)
     }
   })
 
@@ -89,7 +93,7 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     unregisterMovementHandlers()
     unregisterPointerDragHandlers()
     unregisterChatHandlers()
-    unsubscribeFromChatReactions()
+    unsubscribeFromChatActions()
     chatWindowController.dispose()
     chatController.dispose()
     pointerDragController.dispose()
@@ -104,6 +108,10 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
   }
 
   return window
+}
+
+function logProviderReply(diagnostics: ChatProviderReplyDiagnostics): void {
+  console.info('[AIProvider] Reply received', diagnostics)
 }
 
 function logProviderError(error: unknown): void {

@@ -1,11 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+import { isAIPetActionSequence } from '../shared/ai-pet-action'
 import type { LoadedCharacter } from '../shared/character'
-import {
-  isChatPetReaction,
-  isChatSendResult,
-  isChatState
-} from '../shared/chat'
+import { isChatSendResult, isChatState } from '../shared/chat'
 import type { DesktopApi } from '../shared/desktop-api'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import {
@@ -96,16 +93,16 @@ const desktopApi: DesktopApi = {
 
     return () => ipcRenderer.removeListener(IPC_CHANNELS.chatStateChanged, handleChatStateChange)
   },
-  onChatPetReaction: (listener) => {
-    const handlePetReaction = (_event: Electron.IpcRendererEvent, action: unknown): void => {
-      if (isChatPetReaction(action)) {
-        listener(action)
+  onChatPetActions: (listener) => {
+    const handlePetActions = (_event: Electron.IpcRendererEvent, actions: unknown): void => {
+      if (isAIPetActionSequence(actions)) {
+        listener(actions)
       }
     }
 
-    ipcRenderer.on(IPC_CHANNELS.chatPetReaction, handlePetReaction)
+    ipcRenderer.on(IPC_CHANNELS.chatPetActions, handlePetActions)
 
-    return () => ipcRenderer.removeListener(IPC_CHANNELS.chatPetReaction, handlePetReaction)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.chatPetActions, handlePetActions)
   },
   openChat: () => ipcRenderer.send(IPC_CHANNELS.openChat),
   closeChat: () => ipcRenderer.send(IPC_CHANNELS.closeChat),

@@ -1,5 +1,3 @@
-import { isPetAction, type PetAction } from './pet-action'
-
 export const CHAT_ROLES = ['user', 'assistant'] as const
 export type ChatRole = (typeof CHAT_ROLES)[number]
 
@@ -8,8 +6,6 @@ export type ChatMode = (typeof CHAT_MODES)[number]
 
 export const CHAT_PLACEMENTS = ['left', 'right', 'above', 'below'] as const
 export type ChatPlacement = (typeof CHAT_PLACEMENTS)[number]
-
-export type ChatPetReaction = Extract<PetAction, 'talk' | 'happy' | 'wave'>
 
 export const CHAT_PROVIDER_IDS = ['deepseek', 'local'] as const
 export type ChatProviderId = (typeof CHAT_PROVIDER_IDS)[number]
@@ -78,10 +74,6 @@ export function isChatSendResult(value: unknown): value is ChatSendResult {
       result.reason === 'not-open' ||
       result.reason === 'processing')
   )
-}
-
-export function isChatPetReaction(value: unknown): value is ChatPetReaction {
-  return isPetAction(value) && (value === 'talk' || value === 'happy' || value === 'wave')
 }
 
 function isChatRole(value: unknown): value is ChatRole {

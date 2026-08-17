@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
+import {
+  validateAIPetActionSequence,
+  type AIPetAction
+} from '../../shared/ai-pet-action'
 import type {
   ChatMessage,
-  ChatPetReaction,
   ChatPlacement,
   ChatProviderInfo,
   ChatSendResult,
@@ -11,16 +14,24 @@ import type {
 import type { AIProvider } from '../ai/ai-provider'
 import { getSafeAIErrorMessage } from '../ai/ai-provider-error'
 import { buildAIConversationContext } from '../ai/conversation-context'
-import { inferPetReaction } from '../ai/infer-pet-reaction'
 
 type ChatListener = (state: ChatState) => void
-type PetReactionListener = (action: ChatPetReaction) => void
+type PetActionsListener = (actions: readonly AIPetAction[]) => void
+
+export interface ChatProviderReplyDiagnostics {
+  provider: AIProvider['id']
+  textReturned: boolean
+  textLength: number
+  validatedActions: readonly AIPetAction[]
+  rejectedActionRequests: readonly string[]
+}
 
 interface ChatControllerOptions {
   characterName: string
   provider: AIProvider
   providerInfo: ChatProviderInfo
   onProviderError?: (error: unknown) => void
+  onProviderReply?: (diagnostics: ChatProviderReplyDiagnostics) => void
 }
 
 const DEFAULT_SPEECH_DURATION_MS = 4_500
@@ -29,7 +40,7 @@ const MAX_IN_MEMORY_MESSAGES = 40
 
 export class ChatController {
   private readonly listeners = new Set<ChatListener>()
-  private readonly petReactionListeners = new Set<PetReactionListener>()
+  private readonly petActionsListeners = new Set<PetActionsListener>()
   private speechTimer: NodeJS.Timeout | undefined
   private activeRequest: AbortController | undefined
   private replyGeneration = 0
@@ -57,10 +68,10 @@ export class ChatController {
     return () => this.listeners.delete(listener)
   }
 
-  subscribeToPetReactions(listener: PetReactionListener): () => void {
-    this.petReactionListeners.add(listener)
+  subscribeToPetActions(listener: PetActionsListener): () => void {
+    this.petActionsListeners.add(listener)
 
-    return () => this.petReactionListeners.delete(listener)
+    return () => this.petActionsListeners.delete(listener)
   }
 
   openChat(): void {
@@ -142,7 +153,7 @@ export class ChatController {
 
     this.activeRequest = requestController
     this.setState({ messages, isProcessing: true })
-    this.notifyPetReaction('talk')
+    this.notifyPetActions(['talk'])
 
     try {
       const reply = await this.options.provider.generateReply({
@@ -156,12 +167,24 @@ export class ChatController {
       }
 
       const assistantMessage = this.createMessage('assistant', reply.text)
+      const actionValidation = validateAIPetActionSequence(reply.actions ?? [])
+      const rejectedActionRequests = [
+        ...(reply.rejectedActionRequests ?? []),
+        ...actionValidation.rejected
+      ]
 
       this.setState({
         messages: this.limitMessages([...this.state.messages, assistantMessage]),
         isProcessing: false
       })
-      this.notifyPetReaction(reply.action ?? inferPetReaction(reply.text, normalizedContent))
+      this.options.onProviderReply?.({
+        provider: this.options.provider.id,
+        textReturned: reply.text.trim().length > 0,
+        textLength: reply.text.length,
+        validatedActions: actionValidation.actions,
+        rejectedActionRequests
+      })
+      this.notifyPetActions(actionValidation.actions)
     } catch (error: unknown) {
       if (generation === this.replyGeneration && this.state.mode === 'chat') {
         this.setState({
@@ -187,7 +210,7 @@ export class ChatController {
     this.cancelActiveRequest()
     this.clearSpeechTimer()
     this.listeners.clear()
-    this.petReactionListeners.clear()
+    this.petActionsListeners.clear()
   }
 
   private createMessage(role: ChatMessage['role'], content: string): ChatMessage {
@@ -203,9 +226,13 @@ export class ChatController {
     return messages.slice(-MAX_IN_MEMORY_MESSAGES)
   }
 
-  private notifyPetReaction(action: ChatPetReaction): void {
-    for (const listener of this.petReactionListeners) {
-      listener(action)
+  private notifyPetActions(actions: readonly AIPetAction[]): void {
+    if (actions.length === 0) {
+      return
+    }
+
+    for (const listener of this.petActionsListeners) {
+      listener(actions)
     }
   }
 

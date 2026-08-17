@@ -1,5 +1,6 @@
 import type { LoadedCharacter } from './character'
-import type { ChatPetReaction, ChatSendResult, ChatState } from './chat'
+import type { AIPetAction } from './ai-pet-action'
+import type { ChatSendResult, ChatState } from './chat'
 import type { PetMovementDirection, PetMovementEdge, PetMovementSnapshot } from './pet-movement'
 import type { PetPointerPosition } from './pet-pointer-drag'
 
@@ -15,7 +16,7 @@ export interface DesktopApi {
   endPetPointerDrag: () => void
   getChatState: () => Promise<ChatState>
   onChatStateChange: (listener: (state: ChatState) => void) => () => void
-  onChatPetReaction: (listener: (action: ChatPetReaction) => void) => () => void
+  onChatPetActions: (listener: (actions: readonly AIPetAction[]) => void) => () => void
   openChat: () => void
   closeChat: () => void
   showSpeechBubble: () => void

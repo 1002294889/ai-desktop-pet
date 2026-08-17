@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import type { ChatState } from '../../../shared/chat'
-import { petActionController } from '../pet/pet-action-controller-instance'
+import { aiActionSequenceController } from './ai-action-sequence-controller-instance'
 import { chatSessionCoordinator } from './chat-session-coordinator-instance'
 
 export function usePetChatBridge(): ChatState | undefined {
@@ -19,8 +19,8 @@ export function usePetChatBridge(): ChatState | undefined {
       setState(nextState)
     }
     const stopListeningForState = window.desktopApi.onChatStateChange(applyState)
-    const stopListeningForReactions = window.desktopApi.onChatPetReaction((action) => {
-      petActionController.playAction(action)
+    const stopListeningForActions = window.desktopApi.onChatPetActions((actions) => {
+      aiActionSequenceController.playActions(actions)
     })
 
     void window.desktopApi.getChatState().then(applyState)
@@ -28,7 +28,7 @@ export function usePetChatBridge(): ChatState | undefined {
     return () => {
       isActive = false
       stopListeningForState()
-      stopListeningForReactions()
+      stopListeningForActions()
     }
   }, [])
 

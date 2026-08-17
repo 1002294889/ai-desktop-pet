@@ -1,4 +1,4 @@
-import type { ChatPetReaction } from '../../shared/chat'
+import type { AIPetAction } from '../../shared/ai-pet-action'
 
 export type AIChatRole = 'system' | 'user' | 'assistant'
 
@@ -15,7 +15,8 @@ export interface AIChatRequest {
 
 export interface AIChatResponse {
   text: string
-  action?: ChatPetReaction
+  actions?: readonly AIPetAction[]
+  rejectedActionRequests?: readonly string[]
 }
 
 export interface AIProvider {
