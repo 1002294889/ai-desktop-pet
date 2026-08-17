@@ -14,6 +14,7 @@ import type {
 import type { AIProvider } from '../ai/ai-provider'
 import { getSafeAIErrorMessage } from '../ai/ai-provider-error'
 import { buildAIConversationContext } from '../ai/conversation-context'
+import type { MemoryManager } from '../memory/MemoryManager'
 
 type ChatListener = (state: ChatState) => void
 type PetActionsListener = (actions: readonly AIPetAction[]) => void
@@ -26,12 +27,19 @@ export interface ChatProviderReplyDiagnostics {
   rejectedActionRequests: readonly string[]
 }
 
+export interface ChatPersistenceErrorDiagnostics {
+  operation: 'persist-conversation-message'
+  error: unknown
+}
+
 interface ChatControllerOptions {
   characterName: string
   provider: AIProvider
   providerInfo: ChatProviderInfo
+  memoryManager: MemoryManager
   onProviderError?: (error: unknown) => void
   onProviderReply?: (diagnostics: ChatProviderReplyDiagnostics) => void
+  onPersistenceError?: (diagnostics: ChatPersistenceErrorDiagnostics) => void
 }
 
 const DEFAULT_SPEECH_DURATION_MS = 4_500
@@ -77,15 +85,17 @@ export class ChatController {
   openChat(): void {
     this.clearSpeechTimer()
 
-    const messages =
-      this.state.messages.length > 0
-        ? this.state.messages
-        : [
-            this.createMessage(
-              'assistant',
-              `Hey! I'm ${this.state.characterName}. What would you like to talk about?`
-            )
-          ]
+    let messages = this.state.messages
+
+    if (messages.length === 0) {
+      const greeting = this.createMessage(
+        'assistant',
+        `Hey! I'm ${this.state.characterName}. What would you like to talk about?`
+      )
+
+      messages = [greeting]
+      this.persistConversationMessage(greeting)
+    }
 
     this.setState({ mode: 'chat', messages, speechText: null })
   }
@@ -153,6 +163,7 @@ export class ChatController {
 
     this.activeRequest = requestController
     this.setState({ messages, isProcessing: true })
+    this.persistConversationMessage(userMessage)
     this.notifyPetActions(['talk'])
 
     try {
@@ -177,6 +188,7 @@ export class ChatController {
         messages: this.limitMessages([...this.state.messages, assistantMessage]),
         isProcessing: false
       })
+      this.persistConversationMessage(assistantMessage)
       this.options.onProviderReply?.({
         provider: this.options.provider.id,
         textReturned: reply.text.trim().length > 0,
@@ -187,13 +199,13 @@ export class ChatController {
       this.notifyPetActions(actionValidation.actions)
     } catch (error: unknown) {
       if (generation === this.replyGeneration && this.state.mode === 'chat') {
+        const errorMessage = this.createMessage('assistant', getSafeAIErrorMessage(error))
+
         this.setState({
-          messages: this.limitMessages([
-            ...this.state.messages,
-            this.createMessage('assistant', getSafeAIErrorMessage(error))
-          ]),
+          messages: this.limitMessages([...this.state.messages, errorMessage]),
           isProcessing: false
         })
+        this.persistConversationMessage(errorMessage)
         this.options.onProviderError?.(error)
       }
     } finally {
@@ -224,6 +236,21 @@ export class ChatController {
 
   private limitMessages(messages: ChatMessage[]): ChatMessage[] {
     return messages.slice(-MAX_IN_MEMORY_MESSAGES)
+  }
+
+  private persistConversationMessage(message: ChatMessage): void {
+    try {
+      this.options.memoryManager.addConversationMessage({
+        role: message.role,
+        content: message.content,
+        createdAt: message.createdAt
+      })
+    } catch (error: unknown) {
+      this.options.onPersistenceError?.({
+        operation: 'persist-conversation-message',
+        error
+      })
+    }
   }
 
   private notifyPetActions(actions: readonly AIPetAction[]): void {

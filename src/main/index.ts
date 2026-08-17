@@ -12,11 +12,21 @@ import {
 import { loadDevelopmentEnvironment } from './config/development-environment'
 import { registerAppInfoHandlers } from './ipc/app-info'
 import { registerCharacterHandlers } from './ipc/characters'
+import { MemoryManager } from './memory/MemoryManager'
+import {
+  configureDevelopmentMemoryTest,
+  runDevelopmentMemoryProbe
+} from './memory/development-memory-probe'
+import { MemoryManagerError } from './memory/memory-manager-error'
 import { createPetWindow } from './windows/pet-window'
 
 registerCharacterProtocolScheme()
 
+let memoryManager: MemoryManager | undefined
+
 async function startApplication(): Promise<void> {
+  const developmentMemoryTestMode = configureDevelopmentMemoryTest(app)
+
   await app.whenReady()
 
   const developmentEnvironment = app.isPackaged
@@ -30,8 +40,16 @@ async function startApplication(): Promise<void> {
     charactersDirectory,
     preferredCharacterId: process.env.DESKTOP_PET_CHARACTER_ID
   })
+  const databasePath = join(app.getPath('userData'), 'pet-memory.db')
 
   await characterManager.initialize()
+  memoryManager = new MemoryManager({ databasePath })
+  memoryManager.initialize()
+
+  if (developmentMemoryTestMode) {
+    runDevelopmentMemoryProbe(memoryManager, developmentMemoryTestMode)
+  }
+
   const aiConfiguration = loadAIConfiguration()
   const aiProvider = createAIProvider(aiConfiguration)
   registerCharacterAssetProtocol(characterManager)
@@ -50,6 +68,7 @@ async function startApplication(): Promise<void> {
     console.info(
       `[CharacterManager] Loaded active character: ${activeCharacter.manifest.name} (${activeCharacter.manifest.id})`
     )
+    console.info(`[MemoryManager] Local database ready: ${databasePath}`)
     for (const warning of aiConfiguration.warnings) {
       console.warn(`[AIConfiguration] ${warning}`)
     }
@@ -66,6 +85,7 @@ async function startApplication(): Promise<void> {
     createPetWindow({
       characterName,
       aiProvider,
+      memoryManager: requireMemoryManager(),
       reportProviderErrors: !app.isPackaged
     })
   }
@@ -80,8 +100,28 @@ async function startApplication(): Promise<void> {
 }
 
 void startApplication().catch((error: unknown) => {
-  console.error('Failed to start AI Desktop Pet', error)
+  if (error instanceof MemoryManagerError) {
+    console.error('Failed to start AI Desktop Pet memory storage.', { code: error.code })
+  } else {
+    console.error('Failed to start AI Desktop Pet', {
+      name: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? error.message : 'Unknown startup error'
+    })
+  }
+
   app.quit()
+})
+
+app.on('will-quit', () => {
+  try {
+    memoryManager?.close()
+  } catch (error: unknown) {
+    console.error('[MemoryManager] Failed to close local storage.', {
+      code: error instanceof MemoryManagerError ? error.code : 'unexpected-error'
+    })
+  } finally {
+    memoryManager = undefined
+  }
 })
 
 app.on('window-all-closed', () => {
@@ -89,3 +129,11 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
+function requireMemoryManager(): MemoryManager {
+  if (!memoryManager) {
+    throw new MemoryManagerError('not-initialized')
+  }
+
+  return memoryManager
+}

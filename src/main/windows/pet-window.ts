@@ -7,11 +7,14 @@ import type { AIProviderSelection } from '../ai/provider-factory'
 import { AIProviderError } from '../ai/ai-provider-error'
 import {
   ChatController,
+  type ChatPersistenceErrorDiagnostics,
   type ChatProviderReplyDiagnostics
 } from '../chat/ChatController'
 import { registerChatHandlers } from '../ipc/chat'
 import { registerPetMovementHandlers } from '../ipc/pet-movement'
 import { registerPetPointerDragHandlers } from '../ipc/pet-pointer-drag'
+import type { MemoryManager } from '../memory/MemoryManager'
+import { MemoryManagerError } from '../memory/memory-manager-error'
 import { DesktopMovementController } from './DesktopMovementController'
 import { ChatWindowController } from './ChatWindowController'
 import { PetPointerDragController } from './PetPointerDragController'
@@ -23,6 +26,7 @@ const PET_WINDOW_SIZE = 300
 export interface CreatePetWindowOptions {
   characterName: string
   aiProvider: AIProviderSelection
+  memoryManager: MemoryManager
   reportProviderErrors: boolean
 }
 
@@ -64,8 +68,10 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     characterName: options.characterName,
     provider: options.aiProvider.provider,
     providerInfo: options.aiProvider.info,
+    memoryManager: options.memoryManager,
     onProviderError: options.reportProviderErrors ? logProviderError : undefined,
-    onProviderReply: options.reportProviderErrors ? logProviderReply : undefined
+    onProviderReply: options.reportProviderErrors ? logProviderReply : undefined,
+    onPersistenceError: logPersistenceError
   })
   const chatWindowController = new ChatWindowController(window, chatController)
   const unregisterMovementHandlers = registerPetMovementHandlers(window, movementController)
@@ -126,5 +132,15 @@ function logProviderError(error: unknown): void {
 
   console.error('[AIProvider] Unexpected provider failure', {
     name: error instanceof Error ? error.name : typeof error
+  })
+}
+
+function logPersistenceError(diagnostics: ChatPersistenceErrorDiagnostics): void {
+  console.error('[MemoryManager] Chat persistence failed.', {
+    operation: diagnostics.operation,
+    code:
+      diagnostics.error instanceof MemoryManagerError
+        ? diagnostics.error.code
+        : 'unexpected-error'
   })
 }
