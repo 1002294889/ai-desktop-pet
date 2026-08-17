@@ -148,6 +148,146 @@ Do not bundle third-party copyrighted character assets into the public repositor
 
 User-provided character assets should be supported by the character pack system.
 
+## AI Provider Architecture
+
+The desktop pet must not be permanently tied to one AI provider.
+
+The future AI layer must use a provider abstraction so the application can support providers such as:
+
+- DeepSeek
+- OpenAI
+- other compatible AI APIs
+
+Core chat logic must not directly depend on one provider SDK.
+
+Future architecture should look approximately like:
+
+```text
+Chat System
+→ AIProvider interface
+→ DeepSeekProvider / OpenAIProvider / other providers
+```
+
+Users should eventually be able to choose an AI provider in settings.
+
+API keys must:
+
+- never be hardcoded
+- never be exposed directly to renderer code
+- never be committed to GitHub
+- be handled securely through the Electron main process or another secure layer
+
+## Long-Term Memory Architecture
+
+The desktop pet should eventually support persistent user memory.
+
+The AI model itself is NOT the permanent memory store.
+
+The application owns and manages memory.
+
+Memory should be separated into:
+
+1. Short-term conversation context
+
+Examples:
+
+- current conversation
+- recent messages
+- current topic
+
+2. Structured long-term user profile
+
+Examples:
+
+- preferred name
+- age when voluntarily provided
+- occupation
+- interests
+- preferences
+- important goals
+- recurring habits
+- important people
+
+3. Event / summarized memory
+
+Examples:
+
+- important recent life events
+- ongoing projects
+- important things the user wants the pet to remember
+- meaningful past conversations
+
+Create a future MemoryManager architecture.
+
+Initial long-term storage should use a local database such as SQLite.
+
+The future flow should support:
+
+```text
+User message
+→ retrieve relevant memories
+→ build AI context
+→ AIProvider
+→ personalized response
+```
+
+It should also support:
+
+```text
+Conversation
+→ MemoryExtractor
+→ determine whether information is worth remembering
+→ structured memory
+→ local persistent storage
+```
+
+Do NOT permanently remember every message.
+
+The system should eventually use importance and relevance to decide what should be retained.
+
+Users must eventually be able to:
+
+- view saved memories
+- edit memories
+- delete individual memories
+- clear all memories
+- disable long-term memory
+
+Sensitive or personal information should not be silently stored without appropriate user controls.
+
+## Personality Architecture
+
+Character appearance and AI personality must remain separate but connectable.
+
+A Character Pack may eventually provide an optional personality configuration.
+
+Examples:
+
+character.json or an associated personality configuration may define:
+
+- personality name
+- speaking style
+- emotional tendencies
+- preferred reactions
+- relationship style
+
+The same user memory system should be reusable across different characters.
+
+Example:
+
+```text
+User says:
+"I had a difficult day at work."
+
+A gentle character may respond warmly.
+
+A playful character may respond humorously.
+
+Both characters may use the same underlying relevant memories.
+```
+
+Do not implement AI, memory, or personality in this step.
+
 ## Security Rules
 
 Always preserve:
