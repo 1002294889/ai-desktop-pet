@@ -9,6 +9,7 @@ import {
   registerCharacterAssetProtocol,
   registerCharacterProtocolScheme
 } from './characters/character-protocol'
+import { loadDevelopmentEnvironment } from './config/development-environment'
 import { registerAppInfoHandlers } from './ipc/app-info'
 import { registerCharacterHandlers } from './ipc/characters'
 import { createPetWindow } from './windows/pet-window'
@@ -17,6 +18,10 @@ registerCharacterProtocolScheme()
 
 async function startApplication(): Promise<void> {
   await app.whenReady()
+
+  const developmentEnvironment = app.isPackaged
+    ? { loaded: false }
+    : loadDevelopmentEnvironment(app.getAppPath())
 
   const charactersDirectory = app.isPackaged
     ? join(process.resourcesPath, 'characters')
@@ -35,6 +40,13 @@ async function startApplication(): Promise<void> {
 
   if (!app.isPackaged) {
     const activeCharacter = characterManager.getActiveCharacter()
+
+    if (developmentEnvironment.warning) {
+      console.warn(`[Environment] ${developmentEnvironment.warning}`)
+    } else if (developmentEnvironment.loaded) {
+      console.info('[Environment] Loaded local development settings from .env.local.')
+    }
+
     console.info(
       `[CharacterManager] Loaded active character: ${activeCharacter.manifest.name} (${activeCharacter.manifest.id})`
     )
