@@ -2,6 +2,7 @@ import { readFile, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type {
+  CharacterAction,
   CharacterManifest,
   LoadedCharacter,
   LoadedCharacterAction
@@ -67,10 +68,7 @@ export class CharacterManager {
       manifest: record.manifest,
       actions: Object.fromEntries(
         Object.entries(record.manifest.actions).map(([actionName, definition]) => {
-          const loadedAction: LoadedCharacterAction = {
-            definition,
-            assetUrl: this.createAssetUrl(record.manifest.id, definition.asset)
-          }
+          const loadedAction = this.loadAction(record.manifest.id, definition)
 
           return [actionName, loadedAction]
         })
@@ -114,7 +112,7 @@ export class CharacterManager {
     }
 
     const manifest = validateCharacterManifest(manifestValue, manifestPath)
-    const allowedAssets = new Set(Object.values(manifest.actions).map((action) => action.asset))
+    const allowedAssets = new Set(Object.values(manifest.actions).flatMap(getActionAssetPaths))
 
     await Promise.all(
       [...allowedAssets].map(async (assetPath) => {
@@ -134,4 +132,33 @@ export class CharacterManager {
 
     return `${CHARACTER_PROTOCOL_SCHEME}://${encodeURIComponent(characterId)}/${encodedAssetPath}`
   }
+
+  private loadAction(characterId: string, definition: CharacterAction): LoadedCharacterAction {
+    switch (definition.type) {
+      case 'sprite':
+        return {
+          definition,
+          frameUrls: definition.frames.map((frame) => this.createAssetUrl(characterId, frame))
+        }
+      case 'static':
+        return {
+          definition,
+          assetUrl: this.createAssetUrl(characterId, definition.asset)
+        }
+      case 'animated-image':
+        return {
+          definition,
+          assetUrl: this.createAssetUrl(characterId, definition.asset)
+        }
+      case 'live2d':
+        return {
+          definition,
+          assetUrl: this.createAssetUrl(characterId, definition.asset)
+        }
+    }
+  }
+}
+
+function getActionAssetPaths(action: CharacterAction): string[] {
+  return action.type === 'sprite' ? action.frames : [action.asset]
 }

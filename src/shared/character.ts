@@ -1,9 +1,4 @@
-export const CHARACTER_RENDERER_TYPES = [
-  'static-image',
-  'sprite',
-  'animated-image',
-  'live2d'
-] as const
+export const CHARACTER_RENDERER_TYPES = ['static', 'sprite', 'animated-image', 'live2d'] as const
 
 export type CharacterRendererType = (typeof CHARACTER_RENDERER_TYPES)[number]
 
@@ -11,15 +6,38 @@ export const CHARACTER_ACTION_TYPES = ['static', 'sprite', 'animated-image', 'li
 
 export type CharacterActionType = (typeof CHARACTER_ACTION_TYPES)[number]
 
-export interface CharacterAction {
+interface CharacterActionBase {
   type: CharacterActionType
-  asset: string
   loop?: boolean
-  frameWidth?: number
-  frameHeight?: number
-  frameCount?: number
-  framesPerSecond?: number
 }
+
+export interface StaticCharacterAction extends CharacterActionBase {
+  type: 'static'
+  asset: string
+}
+
+export interface SpriteCharacterAction extends CharacterActionBase {
+  type: 'sprite'
+  frames: string[]
+  fps: number
+  loop: boolean
+}
+
+export interface AnimatedImageCharacterAction extends CharacterActionBase {
+  type: 'animated-image'
+  asset: string
+}
+
+export interface Live2DCharacterAction extends CharacterActionBase {
+  type: 'live2d'
+  asset: string
+}
+
+export type CharacterAction =
+  | StaticCharacterAction
+  | SpriteCharacterAction
+  | AnimatedImageCharacterAction
+  | Live2DCharacterAction
 
 export interface CharacterManifest {
   id: string
@@ -32,10 +50,31 @@ export interface CharacterManifest {
   actions: Record<string, CharacterAction>
 }
 
-export interface LoadedCharacterAction {
-  definition: CharacterAction
+export interface LoadedStaticCharacterAction {
+  definition: StaticCharacterAction
   assetUrl: string
 }
+
+export interface LoadedSpriteCharacterAction {
+  definition: SpriteCharacterAction
+  frameUrls: string[]
+}
+
+export interface LoadedAnimatedImageCharacterAction {
+  definition: AnimatedImageCharacterAction
+  assetUrl: string
+}
+
+export interface LoadedLive2DCharacterAction {
+  definition: Live2DCharacterAction
+  assetUrl: string
+}
+
+export type LoadedCharacterAction =
+  | LoadedStaticCharacterAction
+  | LoadedSpriteCharacterAction
+  | LoadedAnimatedImageCharacterAction
+  | LoadedLive2DCharacterAction
 
 export interface LoadedCharacter {
   manifest: CharacterManifest

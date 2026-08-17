@@ -1,16 +1,90 @@
 {
   "id": "default",
   "name": "Default Pet",
-  "renderer": "static-image",
+  "renderer": "sprite",
   "version": 1,
   "defaultWidth": 220,
   "defaultHeight": 250,
   "scale": 1,
   "actions": {
     "idle": {
-      "type": "static",
-      "asset": "assets/placeholder.svg",
+      "type": "sprite",
+      "frames": ["assets/idle/01.svg", "assets/idle/02.svg"],
+      "fps": 2,
       "loop": true
+    },
+    "walk_left": {
+      "type": "sprite",
+      "frames": [
+        "assets/walk-left/01.svg",
+        "assets/walk-left/02.svg",
+        "assets/walk-left/03.svg"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "walk_right": {
+      "type": "sprite",
+      "frames": [
+        "assets/walk-right/01.svg",
+        "assets/walk-right/02.svg",
+        "assets/walk-right/03.svg"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "sit": {
+      "type": "sprite",
+      "frames": ["assets/sit/01.svg", "assets/sit/02.svg"],
+      "fps": 2,
+      "loop": true
+    },
+    "sleep": {
+      "type": "sprite",
+      "frames": ["assets/sleep/01.svg", "assets/sleep/02.svg"],
+      "fps": 1.5,
+      "loop": true
+    },
+    "wake": {
+      "type": "sprite",
+      "frames": ["assets/wake/01.svg", "assets/wake/02.svg", "assets/wake/03.svg"],
+      "fps": 2,
+      "loop": false
+    },
+    "happy": {
+      "type": "sprite",
+      "frames": ["assets/happy/01.svg", "assets/happy/02.svg", "assets/happy/03.svg"],
+      "fps": 2,
+      "loop": false
+    },
+    "angry": {
+      "type": "sprite",
+      "frames": ["assets/angry/01.svg", "assets/angry/02.svg", "assets/angry/03.svg"],
+      "fps": 2,
+      "loop": false
+    },
+    "jump": {
+      "type": "sprite",
+      "frames": [
+        "assets/jump/01.svg",
+        "assets/jump/02.svg",
+        "assets/jump/03.svg",
+        "assets/jump/04.svg"
+      ],
+      "fps": 3,
+      "loop": false
+    },
+    "wave": {
+      "type": "sprite",
+      "frames": ["assets/wave/01.svg", "assets/wave/02.svg", "assets/wave/03.svg"],
+      "fps": 2,
+      "loop": false
+    },
+    "talk": {
+      "type": "sprite",
+      "frames": ["assets/talk/01.svg", "assets/talk/02.svg", "assets/talk/03.svg"],
+      "fps": 2,
+      "loop": false
     }
   }
 }

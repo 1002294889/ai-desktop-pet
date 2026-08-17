@@ -1,9 +1,12 @@
-import type { LoadedCharacter, LoadedCharacterAction } from '../../../../../shared/character'
+import type {
+  LoadedCharacter,
+  LoadedStaticCharacterAction
+} from '../../../../../shared/character'
 import type { PetAction } from '../../../../../shared/pet-action'
 
 interface StaticImageRendererProps {
   character: LoadedCharacter
-  action: LoadedCharacterAction
+  action: LoadedStaticCharacterAction
   requestedActionName: PetAction
   renderedActionName: string
 }

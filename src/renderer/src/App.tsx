@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import type { LoadedCharacter } from '../../shared/character'
 import { CharacterRenderer } from './components/character/CharacterRenderer'
@@ -12,6 +12,10 @@ export function App(): React.JSX.Element {
   const actionState = usePetActionState(petActionController)
 
   useDeveloperActionShortcuts(petActionController)
+
+  const handleActionComplete = useCallback((action: typeof actionState.currentAction): void => {
+    petActionController.completeCurrentAction(action, 'idle')
+  }, [])
 
   useEffect(() => {
     return window.desktopApi.onPetDragStateChange((isDragging) => {
@@ -48,7 +52,12 @@ export function App(): React.JSX.Element {
     <main className="desktop-pet-shell">
       <section className="pet-drag-region" aria-label="Desktop pet. Drag to move the window.">
         {character ? (
-          <CharacterRenderer character={character} currentAction={actionState.currentAction} />
+          <CharacterRenderer
+            character={character}
+            currentAction={actionState.currentAction}
+            animationKey={actionState.startedAt}
+            onActionComplete={handleActionComplete}
+          />
         ) : null}
         {!character && !loadError ? <p className="character-status">Loading character…</p> : null}
         {loadError ? <p className="character-status">{loadError}</p> : null}

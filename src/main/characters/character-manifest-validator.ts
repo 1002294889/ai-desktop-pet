@@ -6,7 +6,8 @@ import {
   type CharacterAction,
   type CharacterActionType,
   type CharacterManifest,
-  type CharacterRendererType
+  type CharacterRendererType,
+  type SpriteCharacterAction
 } from '../../shared/character'
 
 const CHARACTER_ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/
@@ -43,19 +44,17 @@ function readPositiveNumber(
   return value
 }
 
-function readOptionalPositiveNumber(
-  record: Record<string, unknown>,
-  field: string,
-  source: string
-): number | undefined {
-  if (record[field] === undefined) {
-    return undefined
+function readOptionalLoop(record: Record<string, unknown>, source: string): boolean | undefined {
+  const loop = record.loop
+
+  if (loop !== undefined && typeof loop !== 'boolean') {
+    throw new Error(`${source}: "loop" must be a boolean when provided`)
   }
 
-  return readPositiveNumber(record, field, source)
+  return loop
 }
 
-function validateAssetPath(asset: string, source: string): string {
+function validateAssetPath(asset: string, field: string, source: string): string {
   const normalizedPath = posix.normalize(asset)
 
   if (
@@ -65,10 +64,24 @@ function validateAssetPath(asset: string, source: string): string {
     normalizedPath.startsWith('../') ||
     normalizedPath !== asset
   ) {
-    throw new Error(`${source}: "asset" must be a normalized relative path inside the pack`)
+    throw new Error(`${source}: "${field}" must be a normalized relative path inside the pack`)
   }
 
   return asset
+}
+
+function readFrames(record: Record<string, unknown>, source: string): string[] {
+  if (!Array.isArray(record.frames) || record.frames.length === 0) {
+    throw new Error(`${source}: "frames" must contain at least one asset path`)
+  }
+
+  return record.frames.map((frame, index) => {
+    if (typeof frame !== 'string' || frame.trim().length === 0) {
+      throw new Error(`${source}: "frames[${index}]" must be a non-empty string`)
+    }
+
+    return validateAssetPath(frame, `frames[${index}]`, source)
+  })
 }
 
 function validateAction(actionName: string, value: unknown, source: string): CharacterAction {
@@ -84,32 +97,30 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
     throw new Error(`${actionSource}: unsupported action type "${type}"`)
   }
 
-  const asset = validateAssetPath(readNonEmptyString(value, 'asset', actionSource), actionSource)
-  const loop = value.loop
+  const loop = readOptionalLoop(value, actionSource)
 
-  if (loop !== undefined && typeof loop !== 'boolean') {
-    throw new Error(`${actionSource}: "loop" must be a boolean when provided`)
+  if (type === 'sprite') {
+    const spriteAction: SpriteCharacterAction = {
+      type,
+      frames: readFrames(value, actionSource),
+      fps: readPositiveNumber(value, 'fps', actionSource),
+      loop: loop ?? false
+    }
+
+    return spriteAction
   }
 
-  const action: CharacterAction = {
-    type: type as CharacterActionType,
+  const asset = validateAssetPath(
+    readNonEmptyString(value, 'asset', actionSource),
+    'asset',
+    actionSource
+  )
+
+  return {
+    type: type as 'static' | 'animated-image' | 'live2d',
     asset,
     ...(loop === undefined ? {} : { loop })
   }
-
-  if (action.type === 'sprite') {
-    action.frameWidth = readPositiveNumber(value, 'frameWidth', actionSource)
-    action.frameHeight = readPositiveNumber(value, 'frameHeight', actionSource)
-    action.frameCount = readPositiveNumber(value, 'frameCount', actionSource)
-    action.framesPerSecond = readPositiveNumber(value, 'framesPerSecond', actionSource)
-  } else {
-    action.frameWidth = readOptionalPositiveNumber(value, 'frameWidth', actionSource)
-    action.frameHeight = readOptionalPositiveNumber(value, 'frameHeight', actionSource)
-    action.frameCount = readOptionalPositiveNumber(value, 'frameCount', actionSource)
-    action.framesPerSecond = readOptionalPositiveNumber(value, 'framesPerSecond', actionSource)
-  }
-
-  return action
 }
 
 export function validateCharacterManifest(value: unknown, source: string): CharacterManifest {

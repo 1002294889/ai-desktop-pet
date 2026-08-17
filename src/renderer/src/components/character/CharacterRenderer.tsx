@@ -1,18 +1,28 @@
 import { useEffect } from 'react'
 
-import type { LoadedCharacter } from '../../../../shared/character'
+import type {
+  LoadedCharacter,
+  LoadedCharacterAction,
+  LoadedSpriteCharacterAction,
+  LoadedStaticCharacterAction
+} from '../../../../shared/character'
 import type { PetAction } from '../../../../shared/pet-action'
+import { SpriteRenderer } from './renderers/SpriteRenderer'
 import { StaticImageRenderer } from './renderers/StaticImageRenderer'
 import { TEMPORARY_ACTION_INDICATORS } from './temporary-action-visuals'
 
 interface CharacterRendererProps {
   character: LoadedCharacter
   currentAction: PetAction
+  animationKey: number
+  onActionComplete: (action: PetAction) => void
 }
 
 export function CharacterRenderer({
   character,
-  currentAction
+  currentAction,
+  animationKey,
+  onActionComplete
 }: CharacterRendererProps): React.JSX.Element {
   const requestedAction = character.actions[currentAction]
   const renderedActionName = requestedAction ? currentAction : 'idle'
@@ -31,16 +41,8 @@ export function CharacterRenderer({
     return <p className="character-status">This character does not provide an idle action.</p>
   }
 
-  if (character.manifest.renderer !== 'static-image' || action.definition.type !== 'static') {
-    return (
-      <p className="character-status">
-        Renderer “{character.manifest.renderer}” is not implemented yet.
-      </p>
-    )
-  }
-
   const fallbackDescription = isFallback ? `, using ${renderedActionName} fallback` : ''
-  const indicator = TEMPORARY_ACTION_INDICATORS[currentAction]
+  const indicator = isFallback ? TEMPORARY_ACTION_INDICATORS[currentAction] : undefined
 
   return (
     <div
@@ -50,12 +52,27 @@ export function CharacterRenderer({
       data-rendered-action={renderedActionName}
       aria-label={`${character.manifest.name} character renderer, action ${currentAction}${fallbackDescription}`}
     >
-      <StaticImageRenderer
-        character={character}
-        action={action}
-        requestedActionName={currentAction}
-        renderedActionName={renderedActionName}
-      />
+      {isStaticAction(action) ? (
+        <StaticImageRenderer
+          character={character}
+          action={action}
+          requestedActionName={currentAction}
+          renderedActionName={renderedActionName}
+        />
+      ) : null}
+      {isSpriteAction(action) ? (
+        <SpriteRenderer
+          character={character}
+          action={action}
+          requestedActionName={currentAction}
+          renderedActionName={renderedActionName}
+          restartKey={animationKey}
+          onComplete={() => onActionComplete(currentAction)}
+        />
+      ) : null}
+      {action.definition.type === 'animated-image' || action.definition.type === 'live2d' ? (
+        <p className="character-status">Renderer “{action.definition.type}” is not implemented yet.</p>
+      ) : null}
       {import.meta.env.DEV && indicator ? (
         <span className="temporary-action-indicator" aria-hidden="true">
           {indicator}
@@ -63,4 +80,12 @@ export function CharacterRenderer({
       ) : null}
     </div>
   )
+}
+
+function isStaticAction(action: LoadedCharacterAction): action is LoadedStaticCharacterAction {
+  return action.definition.type === 'static'
+}
+
+function isSpriteAction(action: LoadedCharacterAction): action is LoadedSpriteCharacterAction {
+  return action.definition.type === 'sprite'
 }
