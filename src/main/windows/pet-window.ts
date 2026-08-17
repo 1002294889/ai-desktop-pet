@@ -2,16 +2,25 @@ import { join } from 'node:path'
 
 import { BrowserWindow } from 'electron'
 
+import { IPC_CHANNELS } from '../../shared/ipc-channels'
+import { ChatController } from '../chat/ChatController'
+import { LocalReplyProvider } from '../chat/LocalReplyProvider'
+import { registerChatHandlers } from '../ipc/chat'
 import { registerPetMovementHandlers } from '../ipc/pet-movement'
 import { registerPetPointerDragHandlers } from '../ipc/pet-pointer-drag'
 import { DesktopMovementController } from './DesktopMovementController'
+import { ChatWindowController } from './ChatWindowController'
 import { PetPointerDragController } from './PetPointerDragController'
 import { attachPetDragEvents } from './pet-drag-events'
 import { attachWindowBoundsGuard, getInitialWindowPosition } from './window-bounds'
 
 const PET_WINDOW_SIZE = 300
 
-export function createPetWindow(): BrowserWindow {
+export interface CreatePetWindowOptions {
+  characterName: string
+}
+
+export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow {
   const initialPosition = getInitialWindowPosition({
     width: PET_WINDOW_SIZE,
     height: PET_WINDOW_SIZE
@@ -45,11 +54,23 @@ export function createPetWindow(): BrowserWindow {
 
   const movementController = new DesktopMovementController(window)
   const pointerDragController = new PetPointerDragController(window, movementController)
+  const chatController = new ChatController(new LocalReplyProvider(), options.characterName)
+  const chatWindowController = new ChatWindowController(window, chatController)
   const unregisterMovementHandlers = registerPetMovementHandlers(window, movementController)
   const unregisterPointerDragHandlers = registerPetPointerDragHandlers(
     window,
     pointerDragController
   )
+  const unregisterChatHandlers = registerChatHandlers(
+    window,
+    chatController,
+    chatWindowController
+  )
+  const unsubscribeFromChatReactions = chatController.subscribeToPetReactions((action) => {
+    if (!window.isDestroyed()) {
+      window.webContents.send(IPC_CHANNELS.chatPetReaction, action)
+    }
+  })
 
   attachPetDragEvents(window, {
     onDragStart: () => movementController.stop(),
@@ -59,6 +80,10 @@ export function createPetWindow(): BrowserWindow {
   window.once('closed', () => {
     unregisterMovementHandlers()
     unregisterPointerDragHandlers()
+    unregisterChatHandlers()
+    unsubscribeFromChatReactions()
+    chatWindowController.dispose()
+    chatController.dispose()
     pointerDragController.dispose()
     movementController.dispose()
   })

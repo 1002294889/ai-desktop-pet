@@ -7,5 +7,13 @@ export const IPC_CHANNELS = {
   petMovementStateChanged: 'pet:movement-state-changed',
   petPointerDragStart: 'pet:pointer-drag-start',
   petPointerDragMove: 'pet:pointer-drag-move',
-  petPointerDragEnd: 'pet:pointer-drag-end'
+  petPointerDragEnd: 'pet:pointer-drag-end',
+  getChatState: 'chat:get-state',
+  chatStateChanged: 'chat:state-changed',
+  chatPetReaction: 'chat:pet-reaction',
+  openChat: 'chat:open',
+  closeChat: 'chat:close',
+  showSpeechBubble: 'chat:show-speech',
+  dismissSpeechBubble: 'chat:dismiss-speech',
+  sendChatMessage: 'chat:send-message'
 } as const

@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import type { LoadedCharacter } from '../shared/character'
+import {
+  isChatPetReaction,
+  isChatSendResult,
+  isChatState
+} from '../shared/chat'
 import type { DesktopApi } from '../shared/desktop-api'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import {
@@ -70,6 +75,54 @@ const desktopApi: DesktopApi = {
   },
   endPetPointerDrag: () => {
     ipcRenderer.send(IPC_CHANNELS.petPointerDragEnd)
+  },
+  getChatState: async () => {
+    const state: unknown = await ipcRenderer.invoke(IPC_CHANNELS.getChatState)
+
+    if (!isChatState(state)) {
+      throw new Error('Main process returned an invalid chat state')
+    }
+
+    return state
+  },
+  onChatStateChange: (listener) => {
+    const handleChatStateChange = (_event: Electron.IpcRendererEvent, state: unknown): void => {
+      if (isChatState(state)) {
+        listener(state)
+      }
+    }
+
+    ipcRenderer.on(IPC_CHANNELS.chatStateChanged, handleChatStateChange)
+
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.chatStateChanged, handleChatStateChange)
+  },
+  onChatPetReaction: (listener) => {
+    const handlePetReaction = (_event: Electron.IpcRendererEvent, action: unknown): void => {
+      if (isChatPetReaction(action)) {
+        listener(action)
+      }
+    }
+
+    ipcRenderer.on(IPC_CHANNELS.chatPetReaction, handlePetReaction)
+
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.chatPetReaction, handlePetReaction)
+  },
+  openChat: () => ipcRenderer.send(IPC_CHANNELS.openChat),
+  closeChat: () => ipcRenderer.send(IPC_CHANNELS.closeChat),
+  showSpeechBubble: () => ipcRenderer.send(IPC_CHANNELS.showSpeechBubble),
+  dismissSpeechBubble: () => ipcRenderer.send(IPC_CHANNELS.dismissSpeechBubble),
+  sendChatMessage: async (content) => {
+    if (typeof content !== 'string') {
+      return { accepted: false, reason: 'empty-message' }
+    }
+
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.sendChatMessage, content)
+
+    if (!isChatSendResult(result)) {
+      throw new Error('Main process returned an invalid chat send result')
+    }
+
+    return result
   }
 }
 

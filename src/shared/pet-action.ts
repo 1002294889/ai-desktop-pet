@@ -15,6 +15,10 @@ export const PET_ACTIONS = [
 
 export type PetAction = (typeof PET_ACTIONS)[number]
 
+export function isPetAction(value: unknown): value is PetAction {
+  return PET_ACTIONS.includes(value as PetAction)
+}
+
 export type PetActionLifecycle = 'requested' | 'started' | 'active' | 'completed' | 'cancelled'
 
 export interface PetActionState {

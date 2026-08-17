@@ -36,11 +36,13 @@ async function startApplication(): Promise<void> {
     )
   }
 
-  createPetWindow()
+  const characterName = characterManager.getActiveCharacter().manifest.name
+
+  createPetWindow({ characterName })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createPetWindow()
+      createPetWindow({ characterName })
     }
   })
 }
