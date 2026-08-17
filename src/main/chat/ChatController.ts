@@ -4,13 +4,24 @@ import type {
   ChatMessage,
   ChatPetReaction,
   ChatPlacement,
+  ChatProviderInfo,
   ChatSendResult,
   ChatState
 } from '../../shared/chat'
-import type { ChatReplyProvider } from './chat-reply-provider'
+import type { AIProvider } from '../ai/ai-provider'
+import { getSafeAIErrorMessage } from '../ai/ai-provider-error'
+import { buildAIConversationContext } from '../ai/conversation-context'
+import { inferPetReaction } from '../ai/infer-pet-reaction'
 
 type ChatListener = (state: ChatState) => void
 type PetReactionListener = (action: ChatPetReaction) => void
+
+interface ChatControllerOptions {
+  characterName: string
+  provider: AIProvider
+  providerInfo: ChatProviderInfo
+  onProviderError?: (error: unknown) => void
+}
 
 const DEFAULT_SPEECH_DURATION_MS = 4_500
 const MAX_MESSAGE_LENGTH = 2_000
@@ -20,20 +31,19 @@ export class ChatController {
   private readonly listeners = new Set<ChatListener>()
   private readonly petReactionListeners = new Set<PetReactionListener>()
   private speechTimer: NodeJS.Timeout | undefined
+  private activeRequest: AbortController | undefined
   private replyGeneration = 0
   private state: ChatState
 
-  constructor(
-    private readonly replyProvider: ChatReplyProvider,
-    characterName: string
-  ) {
+  constructor(private readonly options: ChatControllerOptions) {
     this.state = {
       mode: 'hidden',
       placement: 'right',
       messages: [],
       speechText: null,
       isProcessing: false,
-      characterName
+      characterName: options.characterName,
+      provider: options.providerInfo
     }
   }
 
@@ -71,6 +81,7 @@ export class ChatController {
 
   closeChat(): void {
     this.replyGeneration += 1
+    this.cancelActiveRequest()
     this.clearSpeechTimer()
     this.setState({ mode: 'hidden', speechText: null, isProcessing: false })
   }
@@ -125,16 +136,19 @@ export class ChatController {
     }
 
     const generation = ++this.replyGeneration
+    const requestController = new AbortController()
     const userMessage = this.createMessage('user', normalizedContent)
     const messages = this.limitMessages([...this.state.messages, userMessage])
 
+    this.activeRequest = requestController
     this.setState({ messages, isProcessing: true })
     this.notifyPetReaction('talk')
 
     try {
-      const reply = await this.replyProvider.generateReply(normalizedContent, {
+      const reply = await this.options.provider.generateReply({
         characterName: this.state.characterName,
-        messages
+        messages: buildAIConversationContext(this.state.characterName, messages),
+        signal: requestController.signal
       })
 
       if (generation !== this.replyGeneration || this.state.mode !== 'chat') {
@@ -147,21 +161,21 @@ export class ChatController {
         messages: this.limitMessages([...this.state.messages, assistantMessage]),
         isProcessing: false
       })
-      this.notifyPetReaction(reply.action)
+      this.notifyPetReaction(reply.action ?? inferPetReaction(reply.text, normalizedContent))
     } catch (error: unknown) {
       if (generation === this.replyGeneration && this.state.mode === 'chat') {
-        const message =
-          error instanceof Error
-            ? `I couldn't reply just now: ${error.message}`
-            : "I couldn't reply just now."
-
         this.setState({
           messages: this.limitMessages([
             ...this.state.messages,
-            this.createMessage('assistant', message)
+            this.createMessage('assistant', getSafeAIErrorMessage(error))
           ]),
           isProcessing: false
         })
+        this.options.onProviderError?.(error)
+      }
+    } finally {
+      if (this.activeRequest === requestController) {
+        this.activeRequest = undefined
       }
     }
 
@@ -170,6 +184,7 @@ export class ChatController {
 
   dispose(): void {
     this.replyGeneration += 1
+    this.cancelActiveRequest()
     this.clearSpeechTimer()
     this.listeners.clear()
     this.petReactionListeners.clear()
@@ -207,5 +222,10 @@ export class ChatController {
       clearTimeout(this.speechTimer)
       this.speechTimer = undefined
     }
+  }
+
+  private cancelActiveRequest(): void {
+    this.activeRequest?.abort()
+    this.activeRequest = undefined
   }
 }

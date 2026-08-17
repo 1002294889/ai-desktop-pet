@@ -1,10 +1,18 @@
-import type { ChatReply, ChatReplyContext, ChatReplyProvider } from './chat-reply-provider'
+import type { AIChatRequest, AIChatResponse, AIProvider } from '../ai/ai-provider'
 
 const FAKE_REPLY_DELAY_MS = 480
 
-export class LocalReplyProvider implements ChatReplyProvider {
-  async generateReply(message: string, context: ChatReplyContext): Promise<ChatReply> {
+export class LocalReplyProvider implements AIProvider {
+  readonly id = 'local' as const
+
+  async generateReply(request: AIChatRequest): Promise<AIChatResponse> {
     await delay(FAKE_REPLY_DELAY_MS)
+
+    if (request.signal?.aborted) {
+      throw new DOMException('The local reply was cancelled.', 'AbortError')
+    }
+
+    const message = [...request.messages].reverse().find(({ role }) => role === 'user')?.content ?? ''
 
     const normalizedMessage = message.toLowerCase()
 
@@ -35,7 +43,7 @@ export class LocalReplyProvider implements ChatReplyProvider {
 
     if (containsAny(normalizedMessage, ['your name', 'who are you'])) {
       return {
-        text: `I'm ${context.characterName}, your little desktop companion.`,
+        text: `I'm ${request.characterName}, your little desktop companion.`,
         action: 'wave'
       }
     }
@@ -44,7 +52,7 @@ export class LocalReplyProvider implements ChatReplyProvider {
       return { text: "You're welcome! I'm happy to be here.", action: 'happy' }
     }
 
-    const fallbackReplies: readonly ChatReply[] = [
+    const fallbackReplies: readonly AIChatResponse[] = [
       { text: "I'm listening. Tell me a little more!", action: 'talk' },
       { text: 'That sounds interesting. What happened next?', action: 'wave' },
       { text: "I'm right here with you.", action: 'happy' }

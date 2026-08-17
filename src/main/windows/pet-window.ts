@@ -3,8 +3,9 @@ import { join } from 'node:path'
 import { BrowserWindow } from 'electron'
 
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
+import type { AIProviderSelection } from '../ai/provider-factory'
+import { AIProviderError } from '../ai/ai-provider-error'
 import { ChatController } from '../chat/ChatController'
-import { LocalReplyProvider } from '../chat/LocalReplyProvider'
 import { registerChatHandlers } from '../ipc/chat'
 import { registerPetMovementHandlers } from '../ipc/pet-movement'
 import { registerPetPointerDragHandlers } from '../ipc/pet-pointer-drag'
@@ -18,6 +19,8 @@ const PET_WINDOW_SIZE = 300
 
 export interface CreatePetWindowOptions {
   characterName: string
+  aiProvider: AIProviderSelection
+  reportProviderErrors: boolean
 }
 
 export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow {
@@ -54,7 +57,12 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
 
   const movementController = new DesktopMovementController(window)
   const pointerDragController = new PetPointerDragController(window, movementController)
-  const chatController = new ChatController(new LocalReplyProvider(), options.characterName)
+  const chatController = new ChatController({
+    characterName: options.characterName,
+    provider: options.aiProvider.provider,
+    providerInfo: options.aiProvider.info,
+    onProviderError: options.reportProviderErrors ? logProviderError : undefined
+  })
   const chatWindowController = new ChatWindowController(window, chatController)
   const unregisterMovementHandlers = registerPetMovementHandlers(window, movementController)
   const unregisterPointerDragHandlers = registerPetPointerDragHandlers(
@@ -96,4 +104,19 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
   }
 
   return window
+}
+
+function logProviderError(error: unknown): void {
+  if (error instanceof AIProviderError) {
+    console.error('[AIProvider]', {
+      code: error.code,
+      status: error.status,
+      detail: error.technicalMessage
+    })
+    return
+  }
+
+  console.error('[AIProvider] Unexpected provider failure', {
+    name: error instanceof Error ? error.name : typeof error
+  })
 }

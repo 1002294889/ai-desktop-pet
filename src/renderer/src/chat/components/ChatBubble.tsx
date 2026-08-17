@@ -51,7 +51,19 @@ export function ChatBubble({ state }: ChatBubbleProps): React.JSX.Element {
     <main className="chat-window-shell" data-placement={state.placement}>
       <section className="chat-surface chat-bubble" aria-label={`Chat with ${state.characterName}`}>
         <header className="chat-header">
-          <strong>{state.characterName}</strong>
+          <div className="chat-title">
+            <strong>{state.characterName}</strong>
+            <span
+              className="chat-provider-badge"
+              title={
+                state.provider.usingFallback
+                  ? 'DeepSeek is not configured; replies are generated locally.'
+                  : state.provider.model ?? 'Local replies'
+              }
+            >
+              {state.provider.activeProvider === 'deepseek' ? 'DeepSeek' : 'Offline'}
+            </span>
+          </div>
           <button
             className="chat-close-button"
             type="button"

@@ -2,6 +2,8 @@ import { join } from 'node:path'
 
 import { app, BrowserWindow } from 'electron'
 
+import { loadAIConfiguration } from './ai/config'
+import { createAIProvider } from './ai/provider-factory'
 import { CharacterManager } from './characters/character-manager'
 import {
   registerCharacterAssetProtocol,
@@ -25,6 +27,8 @@ async function startApplication(): Promise<void> {
   })
 
   await characterManager.initialize()
+  const aiConfiguration = loadAIConfiguration()
+  const aiProvider = createAIProvider(aiConfiguration)
   registerCharacterAssetProtocol(characterManager)
   registerAppInfoHandlers()
   registerCharacterHandlers(characterManager)
@@ -34,15 +38,31 @@ async function startApplication(): Promise<void> {
     console.info(
       `[CharacterManager] Loaded active character: ${activeCharacter.manifest.name} (${activeCharacter.manifest.id})`
     )
+    for (const warning of aiConfiguration.warnings) {
+      console.warn(`[AIConfiguration] ${warning}`)
+    }
+    console.info(
+      aiProvider.fallbackReason === 'missing-api-key'
+        ? '[AIProvider] DeepSeek requested but no API key is configured; using local fallback.'
+        : `[AIProvider] Active provider: ${aiProvider.info.activeProvider}${aiProvider.info.model ? ` (${aiProvider.info.model})` : ''}`
+    )
   }
 
   const characterName = characterManager.getActiveCharacter().manifest.name
 
-  createPetWindow({ characterName })
+  const createMainWindow = (): void => {
+    createPetWindow({
+      characterName,
+      aiProvider,
+      reportProviderErrors: !app.isPackaged
+    })
+  }
+
+  createMainWindow()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createPetWindow({ characterName })
+      createMainWindow()
     }
   })
 }
