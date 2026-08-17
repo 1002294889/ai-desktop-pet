@@ -35,6 +35,8 @@ type DeepSeekRequestMessage =
   | DeepSeekAssistantToolCallMessage
   | DeepSeekToolResultMessage
 
+const COMPANION_RESPONSE_TEMPERATURE = 0.2
+
 export class DeepSeekProvider implements AIProvider {
   readonly id = 'deepseek' as const
 
@@ -144,6 +146,7 @@ export class DeepSeekProvider implements AIProvider {
         model: this.model,
         messages,
         thinking: { type: 'disabled' },
+        temperature: COMPANION_RESPONSE_TEMPERATURE,
         max_tokens: 350,
         tools: [PLAY_PET_ACTION_TOOL],
         tool_choice: toolChoice,

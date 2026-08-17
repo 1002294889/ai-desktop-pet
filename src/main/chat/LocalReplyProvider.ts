@@ -12,9 +12,51 @@ export class LocalReplyProvider implements AIProvider {
       throw new DOMException('The local reply was cancelled.', 'AbortError')
     }
 
-    const message = [...request.messages].reverse().find(({ role }) => role === 'user')?.content ?? ''
+    const userMessages = request.messages
+      .filter(({ role }) => role === 'user')
+      .map(({ content }) => content)
+    const message = userMessages.at(-1) ?? ''
 
     const normalizedMessage = message.toLowerCase()
+    const earlierUserContext = userMessages.slice(0, -1).join(' ').toLowerCase()
+
+    if (containsAny(normalizedMessage, ['2+2等于多少', '2 + 2等于多少', '2+2是多少'])) {
+      return { text: '4。' }
+    }
+
+    if (containsAny(normalizedMessage, ['跳一下', '跳一个', '跳起来'])) {
+      return { text: '行，看好了。', actions: ['jump'] }
+    }
+
+    if (
+      containsAny(normalizedMessage, ['我拿奖了', '我获奖了']) &&
+      containsAny(earlierUserContext, ['明天有比赛', '明天比赛', '有点紧张'])
+    ) {
+      return {
+        text: '等等，你刚才还在紧张，结果真拿奖了？最后第几名？',
+        actions: ['happy']
+      }
+    }
+
+    if (containsAny(normalizedMessage, ['比赛获奖', '比赛拿奖', '我拿奖了', '我获奖了'])) {
+      return { text: '还真拿下了，可以啊你 😂 最后第几名？', actions: ['happy'] }
+    }
+
+    if (containsAny(normalizedMessage, ['上班累死了', '工作累死了', '今天好累'])) {
+      return { text: '今天怎么累成这样？是事情特别多，还是碰上糟心事了？', actions: ['sit'] }
+    }
+
+    if (containsAny(normalizedMessage, ['认识了一个挺有意思的人', '认识了个有意思的人'])) {
+      return { text: '这人怎么个有意思法？', actions: ['talk'] }
+    }
+
+    if (containsAny(normalizedMessage, ['老板今天居然夸我了', '老板夸我了'])) {
+      return { text: '老板居然开口夸你了？夸你哪件事？', actions: ['happy'] }
+    }
+
+    if (containsAny(normalizedMessage, ['明天有比赛', '明天比赛']) && normalizedMessage.includes('紧张')) {
+      return { text: '明天就上场了？你现在最担心哪一段？', actions: ['sit'] }
+    }
 
     if (containsAny(normalizedMessage, ['amazing news', 'incredible news', 'so excited'])) {
       return {
@@ -56,14 +98,14 @@ export class LocalReplyProvider implements AIProvider {
 
     if (containsAny(normalizedMessage, ['tired', 'exhausted', 'sleepy'])) {
       return {
-        text: 'You sound tired. Maybe stay here with me for a little while.',
+        text: 'Long day? What wore you out the most?',
         actions: ['sit']
       }
     }
 
     if (containsAny(normalizedMessage, ['work', 'project', 'busy'])) {
       return {
-        text: "That sounds like a lot. I'll keep you company while you work on it.",
+        text: 'What part of it has you busiest today?',
         actions: ['talk']
       }
     }
@@ -80,9 +122,9 @@ export class LocalReplyProvider implements AIProvider {
     }
 
     const fallbackReplies: readonly AIChatResponse[] = [
-      { text: "I'm listening. Tell me a little more!", actions: ['talk'] },
-      { text: 'That sounds interesting. What happened next?' },
-      { text: "I'm right here with you.", actions: ['talk'] }
+      { text: 'I’m listening—what happened next?', actions: ['talk'] },
+      { text: 'Okay, that caught my attention. What was the interesting part?' },
+      { text: 'Got it. I’m here.' }
     ]
     const replyIndex = hashMessage(normalizedMessage) % fallbackReplies.length
 
