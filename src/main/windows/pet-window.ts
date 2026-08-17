@@ -2,6 +2,8 @@ import { join } from 'node:path'
 
 import { BrowserWindow } from 'electron'
 
+import { registerPetMovementHandlers } from '../ipc/pet-movement'
+import { DesktopMovementController } from './DesktopMovementController'
 import { attachPetDragEvents } from './pet-drag-events'
 import { attachWindowBoundsGuard, getInitialWindowPosition } from './window-bounds'
 
@@ -39,8 +41,18 @@ export function createPetWindow(): BrowserWindow {
     }
   })
 
-  attachPetDragEvents(window)
+  const movementController = new DesktopMovementController(window)
+  const unregisterMovementHandlers = registerPetMovementHandlers(window, movementController)
+
+  attachPetDragEvents(window, {
+    onDragStart: () => movementController.stop(),
+    shouldIgnoreMove: () => movementController.wasRecentProgrammaticMove()
+  })
   attachWindowBoundsGuard(window)
+  window.once('closed', () => {
+    unregisterMovementHandlers()
+    movementController.dispose()
+  })
   window.once('ready-to-show', () => window.show())
 
   if (process.env.ELECTRON_RENDERER_URL) {

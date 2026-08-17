@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import type { LoadedCharacter } from '../../shared/character'
+import type { PetMovementSnapshot } from '../../shared/pet-movement'
+import { autonomousBehaviorController } from './behavior/autonomous-behavior-controller-instance'
+import { useAutonomousBehaviorState } from './behavior/useAutonomousBehaviorState'
 import { CharacterRenderer } from './components/character/CharacterRenderer'
 import { petActionController } from './pet/pet-action-controller-instance'
 import { useDeveloperActionShortcuts } from './pet/useDeveloperActionShortcuts'
@@ -9,9 +12,11 @@ import { usePetActionState } from './pet/usePetActionState'
 export function App(): React.JSX.Element {
   const [character, setCharacter] = useState<LoadedCharacter>()
   const [loadError, setLoadError] = useState<string>()
+  const [movementState, setMovementState] = useState<PetMovementSnapshot>()
   const actionState = usePetActionState(petActionController)
+  const behaviorState = useAutonomousBehaviorState(autonomousBehaviorController)
 
-  useDeveloperActionShortcuts(petActionController)
+  useDeveloperActionShortcuts(petActionController, autonomousBehaviorController)
 
   const handleActionComplete = useCallback((action: typeof actionState.currentAction): void => {
     petActionController.completeCurrentAction(action, 'idle')
@@ -20,11 +25,25 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     return window.desktopApi.onPetDragStateChange((isDragging) => {
       if (isDragging) {
+        autonomousBehaviorController.pauseForDrag()
         petActionController.playAction('dragged', { force: true })
       } else {
         petActionController.completeCurrentAction('dragged', 'idle')
+        autonomousBehaviorController.resumeAfterDrag()
       }
     })
+  }, [])
+
+  useEffect(() => {
+    const stopListeningForEdges = window.desktopApi.onPetMovementEdge((edge) => {
+      autonomousBehaviorController.handleMovementEdge(edge)
+    })
+    const stopListeningForMovement = window.desktopApi.onPetMovementStateChange(setMovementState)
+
+    return () => {
+      stopListeningForEdges()
+      stopListeningForMovement()
+    }
   }, [])
 
   useEffect(() => {
@@ -48,6 +67,16 @@ export function App(): React.JSX.Element {
     }
   }, [])
 
+  useEffect(() => {
+    if (!character) {
+      return
+    }
+
+    autonomousBehaviorController.startAutonomousBehavior()
+
+    return () => autonomousBehaviorController.stopAutonomousBehavior()
+  }, [character])
+
   return (
     <main className="desktop-pet-shell">
       <section className="pet-drag-region" aria-label="Desktop pet. Drag to move the window.">
@@ -65,7 +94,12 @@ export function App(): React.JSX.Element {
           <output className="pet-action-debug" aria-live="polite">
             {character.manifest.name} ({character.manifest.id}) · Action:{' '}
             {actionState.currentAction} · Previous: {actionState.previousAction ?? 'none'} · Priority:{' '}
-            {actionState.currentActionPriority} · {actionState.lifecycle}
+            {actionState.currentActionPriority} · {actionState.lifecycle} · Auto:{' '}
+            {behaviorState.status}/{behaviorState.plannedAction ?? 'waiting'} · Timer:{' '}
+            {behaviorState.schedulerActive ? 1 : 0} · Drag:{' '}
+            {behaviorState.isDragPaused ? 1 : 0} · Move:{' '}
+            {movementState?.direction ?? 'unknown'} · X: {movementState?.x ?? '?'} [{movementState?.minimumX ?? '?'}–
+            {movementState?.maximumX ?? '?'}] · Transitions: {behaviorState.transitionCount}
           </output>
         ) : null}
       </section>

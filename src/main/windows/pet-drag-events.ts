@@ -4,7 +4,15 @@ import { IPC_CHANNELS } from '../../shared/ipc-channels'
 
 const DRAG_END_SETTLE_DELAY_MS = 180
 
-export function attachPetDragEvents(window: BrowserWindow): void {
+export interface PetDragEventOptions {
+  onDragStart?: () => void
+  shouldIgnoreMove?: () => boolean
+}
+
+export function attachPetDragEvents(
+  window: BrowserWindow,
+  options: PetDragEventOptions = {}
+): void {
   let isDragging = false
   let dragEndTimer: NodeJS.Timeout | undefined
 
@@ -30,6 +38,7 @@ export function attachPetDragEvents(window: BrowserWindow): void {
   const startDrag = (): void => {
     if (!isDragging) {
       isDragging = true
+      options.onDragStart?.()
       notifyRenderer(true)
     }
 
@@ -37,6 +46,10 @@ export function attachPetDragEvents(window: BrowserWindow): void {
   }
 
   const trackMove = (): void => {
+    if (!isDragging && options.shouldIgnoreMove?.()) {
+      return
+    }
+
     if (!isDragging) {
       startDrag()
       return

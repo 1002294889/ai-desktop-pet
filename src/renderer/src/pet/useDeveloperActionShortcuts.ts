@@ -1,6 +1,11 @@
 import { useEffect } from 'react'
 
 import type { PetAction } from '../../../shared/pet-action'
+import {
+  AUTONOMOUS_ACTIONS,
+  type AutonomousAction,
+  type AutonomousBehaviorController
+} from '../behavior/AutonomousBehaviorController'
 import type { PetActionController } from './PetActionController'
 
 export const DEVELOPMENT_ACTION_SHORTCUTS: Readonly<Record<string, PetAction>> = {
@@ -18,7 +23,18 @@ export const DEVELOPMENT_ACTION_SHORTCUTS: Readonly<Record<string, PetAction>> =
   d: 'dragged'
 }
 
-export function useDeveloperActionShortcuts(controller: PetActionController): void {
+const DEVELOPMENT_ACTION_DURATIONS: Partial<Record<AutonomousAction, number>> = {
+  idle: 5_000,
+  walk_left: 60_000,
+  walk_right: 60_000,
+  sit: 5_000,
+  sleep: 3_000
+}
+
+export function useDeveloperActionShortcuts(
+  actionController: PetActionController,
+  behaviorController: AutonomousBehaviorController
+): void {
   useEffect(() => {
     if (!import.meta.env.DEV) {
       return
@@ -29,20 +45,43 @@ export function useDeveloperActionShortcuts(controller: PetActionController): vo
         return
       }
 
-      if (event.key === 'Escape') {
+      const key = event.key.toLowerCase()
+
+      if (key === 'p') {
         event.preventDefault()
-        controller.playAction('idle', { force: true })
+        behaviorController.pauseAutonomousBehavior()
         return
       }
 
-      const action = DEVELOPMENT_ACTION_SHORTCUTS[event.key.toLowerCase()]
+      if (key === 'r') {
+        event.preventDefault()
+        behaviorController.resumeAutonomousBehavior()
+        return
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        behaviorController.forceAutonomousAction('idle', DEVELOPMENT_ACTION_DURATIONS.idle)
+        return
+      }
+
+      const action = DEVELOPMENT_ACTION_SHORTCUTS[key]
 
       if (!action) {
         return
       }
 
       event.preventDefault()
-      const result = controller.playAction(action, { force: action === 'dragged' })
+
+      if (isAutonomousAction(action)) {
+        behaviorController.forceAutonomousAction(
+          action,
+          DEVELOPMENT_ACTION_DURATIONS[action]
+        )
+        return
+      }
+
+      const result = actionController.playAction(action, { force: action === 'dragged' })
 
       if (!result.accepted) {
         console.info(
@@ -54,5 +93,9 @@ export function useDeveloperActionShortcuts(controller: PetActionController): vo
     window.addEventListener('keydown', handleKeyDown)
 
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [controller])
+  }, [actionController, behaviorController])
+}
+
+function isAutonomousAction(action: PetAction): action is AutonomousAction {
+  return AUTONOMOUS_ACTIONS.includes(action as AutonomousAction)
 }
