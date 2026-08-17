@@ -5,7 +5,7 @@ import type { App } from 'electron'
 
 import type { MemoryManager } from './MemoryManager'
 
-const TEST_MODES = ['write', 'verify', 'cleanup'] as const
+const TEST_MODES = ['write', 'verify', 'cleanup', 'use'] as const
 type DevelopmentMemoryTestMode = (typeof TEST_MODES)[number]
 
 const TEST_PROFILE_KEY = 'preferred_name'
@@ -30,7 +30,7 @@ export function configureDevelopmentMemoryTest(
   }
 
   if (!TEST_MODES.includes(value as DevelopmentMemoryTestMode)) {
-    throw new Error('DESKTOP_PET_MEMORY_TEST_MODE must be write, verify, or cleanup.')
+    throw new Error('DESKTOP_PET_MEMORY_TEST_MODE must be write, verify, cleanup, or use.')
   }
 
   const testUserDataDirectory = join(
@@ -57,6 +57,9 @@ export function runDevelopmentMemoryProbe(
       return
     case 'cleanup':
       removeTestData(memoryManager)
+      return
+    case 'use':
+      return
   }
 }
 
@@ -129,10 +132,8 @@ function removeTestData(memoryManager: MemoryManager): void {
   memoryManager.clearMemories()
   memoryManager.clearConversationHistory()
 
-  const profile = memoryManager.getProfileValue(TEST_PROFILE_KEY)
-
-  if (profile?.value === TEST_PROFILE_VALUE) {
-    memoryManager.deleteProfileValue(TEST_PROFILE_KEY)
+  for (const profile of memoryManager.getProfile()) {
+    memoryManager.deleteProfileValue(profile.key)
   }
 
   console.info('[MemoryDevelopmentProbe] Isolated persistence test data cleared.')

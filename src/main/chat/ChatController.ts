@@ -14,6 +14,10 @@ import type {
 import type { AIProvider } from '../ai/ai-provider'
 import { getSafeAIErrorMessage } from '../ai/ai-provider-error'
 import { buildAIConversationContext } from '../ai/conversation-context'
+import type {
+  LongTermMemoryCoordinator,
+  LongTermMemoryDiagnostics
+} from '../memory/LongTermMemoryCoordinator'
 import type { MemoryManager } from '../memory/MemoryManager'
 
 type ChatListener = (state: ChatState) => void
@@ -37,8 +41,10 @@ interface ChatControllerOptions {
   provider: AIProvider
   providerInfo: ChatProviderInfo
   memoryManager: MemoryManager
+  longTermMemory: LongTermMemoryCoordinator
   onProviderError?: (error: unknown) => void
   onProviderReply?: (diagnostics: ChatProviderReplyDiagnostics) => void
+  onMemoryDiagnostics?: (diagnostics: LongTermMemoryDiagnostics) => void
   onPersistenceError?: (diagnostics: ChatPersistenceErrorDiagnostics) => void
 }
 
@@ -167,9 +173,25 @@ export class ChatController {
     this.notifyPetActions(['talk'])
 
     try {
+      const preparedMemory = await this.options.longTermMemory.prepare({
+        currentMessage: normalizedContent,
+        recentMessages: messages.slice(0, -1),
+        signal: requestController.signal
+      })
+
+      this.options.onMemoryDiagnostics?.(preparedMemory.diagnostics)
+
+      if (generation !== this.replyGeneration || this.state.mode !== 'chat') {
+        return { accepted: true }
+      }
+
       const reply = await this.options.provider.generateReply({
         characterName: this.state.characterName,
-        messages: buildAIConversationContext(this.state.characterName, messages),
+        messages: buildAIConversationContext(
+          this.state.characterName,
+          messages,
+          preparedMemory.context
+        ),
         signal: requestController.signal
       })
 

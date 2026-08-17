@@ -17,6 +17,10 @@ import {
   configureDevelopmentMemoryTest,
   runDevelopmentMemoryProbe
 } from './memory/development-memory-probe'
+import {
+  getLongTermMemoryProbeMode,
+  runLongTermMemoryProbe
+} from './memory/development-long-term-memory-probe'
 import { MemoryManagerError } from './memory/memory-manager-error'
 import { createPetWindow } from './windows/pet-window'
 
@@ -80,6 +84,17 @@ async function startApplication(): Promise<void> {
   }
 
   const characterName = characterManager.getActiveCharacter().manifest.name
+  const longTermMemoryProbeMode = app.isPackaged
+    ? undefined
+    : getLongTermMemoryProbeMode()
+
+  if (longTermMemoryProbeMode) {
+    await runLongTermMemoryProbe(longTermMemoryProbeMode, {
+      characterName,
+      providerSelection: aiProvider,
+      memoryManager: requireMemoryManager()
+    })
+  }
 
   const createMainWindow = (): void => {
     createPetWindow({

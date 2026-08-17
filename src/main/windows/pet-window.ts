@@ -13,6 +13,10 @@ import {
 import { registerChatHandlers } from '../ipc/chat'
 import { registerPetMovementHandlers } from '../ipc/pet-movement'
 import { registerPetPointerDragHandlers } from '../ipc/pet-pointer-drag'
+import {
+  createLongTermMemoryCoordinator,
+  type LongTermMemoryDiagnostics
+} from '../memory/LongTermMemoryCoordinator'
 import type { MemoryManager } from '../memory/MemoryManager'
 import { MemoryManagerError } from '../memory/memory-manager-error'
 import { DesktopMovementController } from './DesktopMovementController'
@@ -64,13 +68,19 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
 
   const movementController = new DesktopMovementController(window)
   const pointerDragController = new PetPointerDragController(window, movementController)
+  const longTermMemory = createLongTermMemoryCoordinator(
+    options.aiProvider.provider,
+    options.memoryManager
+  )
   const chatController = new ChatController({
     characterName: options.characterName,
     provider: options.aiProvider.provider,
     providerInfo: options.aiProvider.info,
     memoryManager: options.memoryManager,
+    longTermMemory,
     onProviderError: options.reportProviderErrors ? logProviderError : undefined,
     onProviderReply: options.reportProviderErrors ? logProviderReply : undefined,
+    onMemoryDiagnostics: options.reportProviderErrors ? logMemoryDiagnostics : undefined,
     onPersistenceError: logPersistenceError
   })
   const chatWindowController = new ChatWindowController(window, chatController)
@@ -118,6 +128,22 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
 
 function logProviderReply(diagnostics: ChatProviderReplyDiagnostics): void {
   console.info('[AIProvider] Reply received', diagnostics)
+}
+
+function logMemoryDiagnostics(diagnostics: LongTermMemoryDiagnostics): void {
+  console.info('[LongTermMemory]', {
+    candidateCount: diagnostics.candidateCount,
+    acceptedCategories: diagnostics.acceptedCategories,
+    rejectedCandidateCount: diagnostics.rejectedCandidateCount,
+    rejectedReasons: diagnostics.rejectedReasons,
+    profileValuesWritten: diagnostics.profileValuesWritten,
+    memoriesCreated: diagnostics.memoriesCreated,
+    memoriesDeduplicated: diagnostics.memoriesDeduplicated,
+    retrievedProfileCount: diagnostics.retrievedProfileCount,
+    retrievedMemoryCount: diagnostics.retrievedMemoryCount,
+    unexpectedExtractorActionRequests: diagnostics.unexpectedExtractorActionRequests,
+    extractionFailed: diagnostics.extractionFailed
+  })
 }
 
 function logProviderError(error: unknown): void {

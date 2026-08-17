@@ -3,11 +3,14 @@ import type { ChatRole } from '../../shared/chat'
 export const MEMORY_TYPES = [
   'profile',
   'preference',
-  'goal',
   'person',
+  'goal',
   'event',
   'habit',
   'relationship',
+  'interest',
+  'occupation',
+  'location_general',
   'other'
 ] as const
 
