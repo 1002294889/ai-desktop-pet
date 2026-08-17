@@ -8,6 +8,7 @@ import {
   isPetMovementEdge,
   isPetMovementSnapshot
 } from '../shared/pet-movement'
+import { isPetPointerPosition } from '../shared/pet-pointer-drag'
 
 const desktopApi: DesktopApi = {
   getAppVersion: () => ipcRenderer.invoke(IPC_CHANNELS.getAppVersion) as Promise<string>,
@@ -56,6 +57,19 @@ const desktopApi: DesktopApi = {
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.petMovementStateChanged, handleMovementState)
     }
+  },
+  startPetPointerDrag: (position) => {
+    if (isPetPointerPosition(position)) {
+      ipcRenderer.send(IPC_CHANNELS.petPointerDragStart, position)
+    }
+  },
+  updatePetPointerDrag: (position) => {
+    if (isPetPointerPosition(position)) {
+      ipcRenderer.send(IPC_CHANNELS.petPointerDragMove, position)
+    }
+  },
+  endPetPointerDrag: () => {
+    ipcRenderer.send(IPC_CHANNELS.petPointerDragEnd)
   }
 }
 

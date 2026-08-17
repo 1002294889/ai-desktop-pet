@@ -5,6 +5,9 @@ import type { PetMovementSnapshot } from '../../shared/pet-movement'
 import { autonomousBehaviorController } from './behavior/autonomous-behavior-controller-instance'
 import { useAutonomousBehaviorState } from './behavior/useAutonomousBehaviorState'
 import { CharacterRenderer } from './components/character/CharacterRenderer'
+import { petInteractionController } from './interaction/pet-interaction-controller-instance'
+import { usePetInteraction } from './interaction/usePetInteraction'
+import { usePetInteractionState } from './interaction/usePetInteractionState'
 import { petActionController } from './pet/pet-action-controller-instance'
 import { useDeveloperActionShortcuts } from './pet/useDeveloperActionShortcuts'
 import { usePetActionState } from './pet/usePetActionState'
@@ -15,6 +18,8 @@ export function App(): React.JSX.Element {
   const [movementState, setMovementState] = useState<PetMovementSnapshot>()
   const actionState = usePetActionState(petActionController)
   const behaviorState = useAutonomousBehaviorState(autonomousBehaviorController)
+  const interactionState = usePetInteractionState(petInteractionController)
+  const interactionBindings = usePetInteraction(petInteractionController)
 
   useDeveloperActionShortcuts(petActionController, autonomousBehaviorController)
 
@@ -23,15 +28,9 @@ export function App(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    return window.desktopApi.onPetDragStateChange((isDragging) => {
-      if (isDragging) {
-        autonomousBehaviorController.pauseForDrag()
-        petActionController.playAction('dragged', { force: true })
-      } else {
-        petActionController.completeCurrentAction('dragged', 'idle')
-        autonomousBehaviorController.resumeAfterDrag()
-      }
-    })
+    return window.desktopApi.onPetDragStateChange((isDragging) =>
+      petInteractionController.handleSystemDragState(isDragging)
+    )
   }, [])
 
   useEffect(() => {
@@ -81,12 +80,23 @@ export function App(): React.JSX.Element {
     <main className="desktop-pet-shell">
       <section className="pet-drag-region" aria-label="Desktop pet. Drag to move the window.">
         {character ? (
-          <CharacterRenderer
-            character={character}
-            currentAction={actionState.currentAction}
-            animationKey={actionState.startedAt}
-            onActionComplete={handleActionComplete}
-          />
+          <div
+            className="pet-interaction-surface"
+            role="button"
+            aria-label="Interact with or drag the desktop pet"
+            data-hovered={interactionState.isHovered}
+            data-pressed={interactionState.isPressed}
+            data-dragging={interactionState.isDragging}
+            data-interaction={interactionState.currentInteraction}
+            {...interactionBindings}
+          >
+            <CharacterRenderer
+              character={character}
+              currentAction={actionState.currentAction}
+              animationKey={actionState.startedAt}
+              onActionComplete={handleActionComplete}
+            />
+          </div>
         ) : null}
         {!character && !loadError ? <p className="character-status">Loading character…</p> : null}
         {loadError ? <p className="character-status">{loadError}</p> : null}
@@ -99,7 +109,9 @@ export function App(): React.JSX.Element {
             {behaviorState.schedulerActive ? 1 : 0} · Drag:{' '}
             {behaviorState.isDragPaused ? 1 : 0} · Move:{' '}
             {movementState?.direction ?? 'unknown'} · X: {movementState?.x ?? '?'} [{movementState?.minimumX ?? '?'}–
-            {movementState?.maximumX ?? '?'}] · Transitions: {behaviorState.transitionCount}
+            {movementState?.maximumX ?? '?'}] · Transitions: {behaviorState.transitionCount} · Interaction:{' '}
+            {interactionState.currentInteraction} · Hover: {interactionState.isHovered ? 1 : 0} · Interaction events:{' '}
+            {interactionState.interactionCount}
           </output>
         ) : null}
       </section>

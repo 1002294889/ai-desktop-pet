@@ -3,7 +3,9 @@ import { join } from 'node:path'
 import { BrowserWindow } from 'electron'
 
 import { registerPetMovementHandlers } from '../ipc/pet-movement'
+import { registerPetPointerDragHandlers } from '../ipc/pet-pointer-drag'
 import { DesktopMovementController } from './DesktopMovementController'
+import { PetPointerDragController } from './PetPointerDragController'
 import { attachPetDragEvents } from './pet-drag-events'
 import { attachWindowBoundsGuard, getInitialWindowPosition } from './window-bounds'
 
@@ -42,7 +44,12 @@ export function createPetWindow(): BrowserWindow {
   })
 
   const movementController = new DesktopMovementController(window)
+  const pointerDragController = new PetPointerDragController(window, movementController)
   const unregisterMovementHandlers = registerPetMovementHandlers(window, movementController)
+  const unregisterPointerDragHandlers = registerPetPointerDragHandlers(
+    window,
+    pointerDragController
+  )
 
   attachPetDragEvents(window, {
     onDragStart: () => movementController.stop(),
@@ -51,6 +58,8 @@ export function createPetWindow(): BrowserWindow {
   attachWindowBoundsGuard(window)
   window.once('closed', () => {
     unregisterMovementHandlers()
+    unregisterPointerDragHandlers()
+    pointerDragController.dispose()
     movementController.dispose()
   })
   window.once('ready-to-show', () => window.show())

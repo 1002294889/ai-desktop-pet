@@ -44,6 +44,21 @@ body {
   cursor: grabbing;
 }
 
+.pet-interaction-surface {
+  display: grid;
+  max-width: 100%;
+  max-height: 100%;
+  place-items: center;
+  cursor: pointer;
+  outline: none;
+  touch-action: none;
+  -webkit-app-region: no-drag;
+}
+
+.pet-interaction-surface[data-pressed='true'] {
+  cursor: grabbing;
+}
+
 .character-renderer {
   position: relative;
   display: grid;
@@ -58,7 +73,17 @@ body {
   max-height: 100%;
   object-fit: contain;
   pointer-events: none;
+  transition: filter 140ms ease, transform 140ms ease;
   -webkit-user-drag: none;
+}
+
+.pet-interaction-surface[data-hovered='true'][data-dragging='false'] .character-asset {
+  filter: brightness(1.06) saturate(1.04);
+  transform: translateY(-2px) scale(1.015);
+}
+
+.pet-interaction-surface[data-pressed='true'][data-dragging='false'] .character-asset {
+  transform: scale(0.985);
 }
 
 .temporary-action-indicator {
