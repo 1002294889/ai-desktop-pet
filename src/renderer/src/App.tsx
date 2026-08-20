@@ -19,6 +19,7 @@ import { petInteractionController } from './interaction/pet-interaction-controll
 import { usePetInteraction } from './interaction/usePetInteraction'
 import { usePetInteractionState } from './interaction/usePetInteractionState'
 import { petActionController } from './pet/pet-action-controller-instance'
+import { PetQuickActions } from './pet/PetQuickActions'
 import { useDeveloperActionShortcuts } from './pet/useDeveloperActionShortcuts'
 import { usePetActionState } from './pet/usePetActionState'
 
@@ -86,6 +87,19 @@ export function App(): React.JSX.Element {
     return window.desktopApi.onPetDragStateChange((isDragging) =>
       petInteractionController.handleSystemDragState(isDragging)
     )
+  }, [])
+
+  useEffect(() => {
+    return window.desktopApi.onPetUserAction((action) => {
+      if (action === 'sleep-toggle') {
+        aiActionSequenceController.playActions([
+          petActionController.getSnapshot().currentAction === 'sleep' ? 'wake' : 'sleep'
+        ])
+        return
+      }
+
+      aiActionSequenceController.playActions([action])
+    })
   }, [])
 
   useEffect(() => {
@@ -187,6 +201,7 @@ export function App(): React.JSX.Element {
             {...interactionBindings}
           >
             <CharacterRenderer
+              key={actionState.startedAt}
               character={character}
               currentAction={actionState.currentAction}
               animationKey={actionState.startedAt}
@@ -198,48 +213,15 @@ export function App(): React.JSX.Element {
         {!character && !loadError ? <p className="character-status">Loading character…</p> : null}
         {loadError ? <p className="character-status">{loadError}</p> : null}
         {character ? (
-          <div className="pet-utility-buttons">
-            <button
-              className="pet-utility-button"
-              type="button"
-              aria-label={`Open chat with ${character.manifest.name}`}
-              title={`Chat with ${character.manifest.name}`}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => window.desktopApi.openChat()}
-            >
-              Chat
-            </button>
-            <button
-              className="pet-utility-button"
-              type="button"
-              aria-label="Open memory and privacy settings"
-              title="Memory & Privacy"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => window.desktopApi.openMemorySettings()}
-            >
-              Memory
-            </button>
-            <button
-              className="pet-utility-button"
-              type="button"
-              aria-label="Open Character Manager"
-              title="Characters"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => window.desktopApi.openCharacterManager()}
-            >
-              Characters
-            </button>
-            <button
-              className="pet-utility-button"
-              type="button"
-              aria-label="Open application settings"
-              title="Settings"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => window.desktopApi.openAppSettings()}
-            >
-              Settings
-            </button>
-          </div>
+          <PetQuickActions
+            characterName={character.manifest.name}
+            active={
+              interactionState.isHovered &&
+              !interactionState.isDragging &&
+              (actionState.currentAction === 'idle' || actionState.currentAction === 'sit') &&
+              chatState?.mode === 'hidden'
+            }
+          />
         ) : null}
         {import.meta.env.DEV && character ? (
           <output className="pet-action-debug" aria-live="polite">

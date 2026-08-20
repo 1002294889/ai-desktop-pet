@@ -1,4 +1,5 @@
 import type { AppSettingKey } from '../../../shared/app-settings'
+import { Switch } from '../ui/Switch'
 
 interface SettingsToggleProps {
   settingKey: AppSettingKey
@@ -9,26 +10,6 @@ interface SettingsToggleProps {
   onChange: (key: AppSettingKey, value: boolean) => void
 }
 
-export function SettingsToggle({
-  settingKey,
-  label,
-  description,
-  checked,
-  disabled,
-  onChange
-}: SettingsToggleProps): React.JSX.Element {
-  return (
-    <label className="settings-toggle-row">
-      <span>
-        <strong>{label}</strong>
-        <small>{description}</small>
-      </span>
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(settingKey, event.currentTarget.checked)}
-      />
-    </label>
-  )
+export function SettingsToggle({ settingKey, onChange, ...props }: SettingsToggleProps): React.JSX.Element {
+  return <Switch {...props} onChange={(value) => onChange(settingKey, value)} />
 }

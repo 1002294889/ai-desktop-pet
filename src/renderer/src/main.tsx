@@ -6,6 +6,7 @@ import { ChatApp } from './chat/ChatApp'
 import { CharacterManagerApp } from './characters/CharacterManagerApp'
 import { MemoryApp } from './memory/MemoryApp'
 import { SettingsApp } from './settings/SettingsApp'
+import './ui/ui.css'
 import './styles.css'
 
 const root = document.getElementById('root')

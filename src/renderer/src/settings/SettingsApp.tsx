@@ -1,3 +1,7 @@
+import type { AIProviderSettingsStatus } from '../../../shared/app-settings'
+import { Button, IconButton } from '../ui/Button'
+import { Icon } from '../ui/Icon'
+import { Badge, ManagementPage, Section, StatusMessage } from '../ui/ManagementPage'
 import { SettingsToggle } from './SettingsToggle'
 import { useApplicationSettings } from './useApplicationSettings'
 import './settings.css'
@@ -7,47 +11,38 @@ export function SettingsApp(): React.JSX.Element {
   const overview = state.overview
 
   return (
-    <main className="app-settings-shell">
-      <header className="app-settings-header">
-        <div>
-          <p className="app-settings-eyebrow">AI Desktop Pet</p>
-          <h1>Settings</h1>
-          <p>Control how your companion behaves on this device.</p>
-        </div>
-        <button
-          className="settings-secondary-button"
-          type="button"
+    <ManagementPage
+      title="Settings"
+      description="Choose how your companion behaves on this device."
+      className="app-settings-shell"
+      actions={import.meta.env.DEV ? (
+        <IconButton
+          icon="refresh"
+          label="Refresh settings"
           disabled={state.isLoading || state.isMutating}
           onClick={() => void state.refresh()}
-        >
-          Refresh
-        </button>
-      </header>
-
-      {state.error ? <p className="settings-alert settings-alert-error">{state.error}</p> : null}
-      {state.notice ? <p className="settings-alert settings-alert-success">{state.notice}</p> : null}
+        />
+      ) : undefined}
+    >
+      {state.error ? <StatusMessage tone="error">{state.error}</StatusMessage> : null}
+      {state.notice ? <StatusMessage tone="success">{state.notice}</StatusMessage> : null}
 
       {state.isLoading && !overview ? (
-        <p className="settings-loading">Loading settings…</p>
+        <StatusMessage>Loading settings…</StatusMessage>
       ) : overview ? (
-        <div className="settings-section-list" aria-busy={state.isMutating}>
-          <section className="settings-section">
-            <h2>General</h2>
+        <div className="ui-section-list" aria-busy={state.isMutating}>
+          <Section title="General">
             <SettingsToggle
               settingKey="launchAtLogin"
-              label="Launch AI Desktop Pet when I log in"
-              description={
-                overview.capabilities.launchAtLogin
-                  ? 'Uses the operating system login-item setting.'
-                  : 'Not available on this platform.'
-              }
+              label="Launch at Login"
+              description={overview.capabilities.launchAtLogin ? 'Start your companion automatically after you sign in.' : 'Not available on this device.'}
               checked={overview.settings.launchAtLogin}
               disabled={state.isMutating || !overview.capabilities.launchAtLogin}
               onChange={(key, value) => void state.setSetting(key, value)}
             />
             <SettingsToggle
               settingKey="alwaysOnTop"
-              label="Always on top"
+              label="Always on Top"
               description="Keep the pet above normal windows."
               checked={overview.settings.alwaysOnTop}
               disabled={state.isMutating}
@@ -55,88 +50,120 @@ export function SettingsApp(): React.JSX.Element {
             />
             <SettingsToggle
               settingKey="petVisible"
-              label="Show desktop pet"
-              description="Hiding the pet keeps the application and menu-bar controls running."
+              label="Show Pet"
+              description="The menu-bar icon stays available while the pet is hidden."
               checked={overview.settings.petVisible}
               disabled={state.isMutating}
               onChange={(key, value) => void state.setSetting(key, value)}
             />
-          </section>
+          </Section>
 
-          <section className="settings-section">
-            <h2>Pet</h2>
+          <Section title="Pet">
             <SettingsToggle
               settingKey="autonomousBehaviorEnabled"
-              label="Autonomous behavior"
-              description="Allow idle behavior and desktop wandering. Chat, dragging, and manual actions still work when paused."
+              label="Autonomous Movement"
+              description="Let your companion idle, rest, and wander naturally."
               checked={overview.settings.autonomousBehaviorEnabled}
               disabled={state.isMutating}
               onChange={(key, value) => void state.setSetting(key, value)}
             />
-            <div className="settings-link-row">
-              <span>
-                <strong>{overview.activeCharacter.name}</strong>
-                <small>Active character · {overview.activeCharacter.id}</small>
+            <div className="ui-link-row">
+              <span className="ui-setting-copy">
+                <strong>Active Character</strong>
+                <small>{overview.activeCharacter.name}</small>
               </span>
-              <button
-                className="settings-secondary-button"
+              <Button
                 type="button"
+                variant="tertiary"
                 onClick={() => window.desktopApi.openSettingsDestination('characters')}
               >
-                Characters…
-              </button>
+                Characters <Icon name="chevron" size={15} />
+              </Button>
             </div>
-          </section>
+          </Section>
 
-          <section className="settings-section">
-            <h2>AI</h2>
-            <dl className="settings-status-grid">
-              <div><dt>AI Provider</dt><dd>{overview.ai.requestedProvider}</dd></div>
-              <div><dt>API status</dt><dd>{formatApiStatus(overview.ai.apiStatus)}</dd></div>
-              <div><dt>Active provider</dt><dd>{overview.ai.activeProvider}</dd></div>
-              <div><dt>Model</dt><dd>{overview.ai.model ?? 'Local built-in reply'}</dd></div>
-            </dl>
-            <p className="settings-security-note">API keys are never displayed or sent to this window.</p>
-          </section>
+          <Section title="AI">
+            <div className="settings-status-row">
+              <span className="ui-setting-copy">
+                <strong>Provider</strong>
+                <small>{overview.ai.requestedProvider}</small>
+              </span>
+              <Badge tone={getAIStatusTone(overview.ai)}>{getAIStatusLabel(overview.ai)}</Badge>
+            </div>
+            <div className="settings-status-row">
+              <span className="ui-setting-copy">
+                <strong>Model</strong>
+                <small>{overview.ai.model ?? 'Built-in offline replies'}</small>
+              </span>
+            </div>
+            {overview.ai.apiStatus === 'not-configured' ? (
+              <p className="settings-inline-note">
+                Add your local API key to use DeepSeek. Offline replies remain available.
+              </p>
+            ) : null}
+          </Section>
 
-          <section className="settings-section">
-            <h2>Memory</h2>
+          <Section title="Memory">
             <SettingsToggle
               settingKey="longTermMemoryEnabled"
-              label="Long-term memory"
-              description="Use the same private on-device memory switch shown in Memory & Privacy."
+              label="Long-term Memory"
+              description="Remember useful details on this device for future conversations."
               checked={overview.settings.longTermMemoryEnabled}
               disabled={state.isMutating}
               onChange={(key, value) => void state.setSetting(key, value)}
             />
-            <button
-              className="settings-secondary-button"
-              type="button"
-              onClick={() => window.desktopApi.openSettingsDestination('memory')}
-            >
-              Open Memory &amp; Privacy…
-            </button>
-          </section>
+            <div className="settings-section-action">
+              <Button
+                type="button"
+                icon="memory"
+                onClick={() => window.desktopApi.openSettingsDestination('memory')}
+              >
+                Open Memory Manager
+              </Button>
+            </div>
+          </Section>
 
-          <section className="settings-section settings-about-section">
-            <h2>About</h2>
-            <strong>{overview.application.name}</strong>
-            <p>Version {overview.application.version}</p>
-            <p>{overview.application.description}</p>
-          </section>
+          <Section title="Application">
+            <div className="ui-link-row">
+              <span className="ui-setting-copy">
+                <strong>Hide Desktop Pet</strong>
+                <small>You can show it again from the menu-bar icon.</small>
+              </span>
+              <Button
+                type="button"
+                variant="tertiary"
+                icon="visibility"
+                disabled={state.isMutating || !overview.settings.petVisible}
+                onClick={() => void state.setSetting('petVisible', false)}
+              >
+                Hide Pet
+              </Button>
+            </div>
+          </Section>
+
+          <Section title="About" className="settings-about-section">
+            <div className="settings-about-product">
+              <span className="settings-about-mark"><Icon name="character" size={22} /></span>
+              <div>
+                <strong>{overview.application.name}</strong>
+                <p>Version {overview.application.version}</p>
+              </div>
+            </div>
+            <p>An AI desktop companion with conversation, memory, characters, and autonomous behavior.</p>
+          </Section>
         </div>
       ) : null}
-    </main>
+    </ManagementPage>
   )
 }
 
-function formatApiStatus(status: 'configured' | 'not-configured' | 'not-required'): string {
-  switch (status) {
-    case 'configured':
-      return 'Configured'
-    case 'not-configured':
-      return 'Not configured'
-    case 'not-required':
-      return 'Not required'
-  }
+function getAIStatusLabel(ai: AIProviderSettingsStatus): string {
+  if (ai.apiStatus === 'not-configured') return 'Not configured'
+  if (ai.usingFallback && ai.requestedProvider === 'DeepSeek') return 'Offline'
+  return ai.requestedProvider === 'Local' ? 'Ready' : 'Configured'
+}
+
+function getAIStatusTone(ai: AIProviderSettingsStatus): 'success' | 'warning' | 'neutral' {
+  if (ai.apiStatus === 'not-configured' || ai.usingFallback) return 'warning'
+  return ai.requestedProvider === 'Local' ? 'neutral' : 'success'
 }

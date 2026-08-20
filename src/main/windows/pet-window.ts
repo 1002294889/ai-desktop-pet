@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 
-import { BrowserWindow, type Event, type WebContents } from 'electron'
+import { BrowserWindow, Menu, type Event, type WebContents } from 'electron'
 
 import type { AppSettingsOverview } from '../../shared/app-settings'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
@@ -49,6 +49,8 @@ export interface CreatePetWindowOptions {
   initialSettings: AppSettingsOverview
   reportProviderErrors: boolean
   onPetVisibilityRequested: (visible: boolean) => Promise<void>
+  openSettings: () => void
+  onQuitRequested: () => void
 }
 
 export interface DesktopPetRuntime {
@@ -157,6 +159,38 @@ export function createPetWindow(options: CreatePetWindowOptions): DesktopPetRunt
   let isReadyToShow = false
   let allowWindowClose = false
   let isDisposed = false
+  const handleContextMenu = (): void => {
+    const autonomyEnabled = settingsOverview.settings.autonomousBehaviorEnabled
+    const menu = Menu.buildFromTemplate([
+      { label: 'Chat', click: () => chatController.openChat() },
+      { type: 'separator' },
+      {
+        label: 'Pet Actions',
+        submenu: [
+          { label: 'Wave', click: () => requestUserPetAction(window, 'wave') },
+          { label: 'Jump', click: () => requestUserPetAction(window, 'jump') },
+          { label: 'Sit', click: () => requestUserPetAction(window, 'sit') },
+          { label: 'Sleep / Wake', click: () => requestUserPetAction(window, 'sleep-toggle') }
+        ]
+      },
+      { type: 'separator' },
+      { label: 'Characters…', click: () => characterWindowController.open() },
+      { label: 'Memory & Privacy…', click: () => memoryWindowController.open() },
+      { label: 'Settings…', click: options.openSettings },
+      { type: 'separator' },
+      {
+        label: autonomyEnabled ? 'Pause Movement' : 'Resume Movement',
+        click: () => {
+          void options.settingsManager.setSetting('autonomousBehaviorEnabled', !autonomyEnabled)
+        }
+      },
+      { label: 'Hide Pet', click: () => void options.onPetVisibilityRequested(false) },
+      { type: 'separator' },
+      { label: 'Quit AI Desktop Pet', click: options.onQuitRequested }
+    ])
+
+    menu.popup({ window })
+  }
 
   const cleanup = (): void => {
     if (isDisposed) {
@@ -171,6 +205,7 @@ export function createPetWindow(options: CreatePetWindowOptions): DesktopPetRunt
     unregisterCompanionStateHandlers()
     unregisterCharacterHandlers()
     unsubscribeFromChatActions()
+    window.webContents.off('context-menu', handleContextMenu)
     chatWindowController.dispose()
     characterWindowController.dispose()
     memoryWindowController.dispose()
@@ -188,6 +223,7 @@ export function createPetWindow(options: CreatePetWindowOptions): DesktopPetRunt
   }
 
   attachWindowBoundsGuard(window)
+  window.webContents.on('context-menu', handleContextMenu)
   window.on('close', handleClose)
   window.once('closed', cleanup)
   window.once('ready-to-show', () => {
@@ -244,6 +280,15 @@ export function createPetWindow(options: CreatePetWindowOptions): DesktopPetRunt
         window.destroy()
       }
     }
+  }
+}
+
+function requestUserPetAction(
+  window: BrowserWindow,
+  action: 'wave' | 'jump' | 'sit' | 'sleep-toggle'
+): void {
+  if (!window.isDestroyed()) {
+    window.webContents.send(IPC_CHANNELS.petUserActionRequested, action)
   }
 }
 

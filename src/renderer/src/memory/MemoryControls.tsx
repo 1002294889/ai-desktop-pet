@@ -1,5 +1,10 @@
 import { useState } from 'react'
 
+import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/Dialog'
+import { Badge, Section } from '../ui/ManagementPage'
+import { Switch } from '../ui/Switch'
+
 interface MemoryControlsProps {
   longTermMemoryEnabled: boolean
   conversationMessageCount: number
@@ -8,6 +13,26 @@ interface MemoryControlsProps {
   onClearConversation: () => Promise<boolean>
   onClearLongTermMemory: () => Promise<boolean>
   onClearAllMemory: () => Promise<boolean>
+}
+
+type ClearOperation = 'conversation' | 'long-term' | 'all'
+
+const CONFIRMATIONS: Record<ClearOperation, { title: string; description: string; label: string }> = {
+  conversation: {
+    title: 'Clear conversation history?',
+    description: 'Recent chat messages will be permanently deleted. Your profile and saved long-term memories will remain.',
+    label: 'Clear Conversation'
+  },
+  'long-term': {
+    title: 'Clear long-term memory?',
+    description: 'Profile information and saved memories will be permanently deleted. Conversation history will remain.',
+    label: 'Clear Long-term Memory'
+  },
+  all: {
+    title: 'Clear all memory?',
+    description: 'Profile information, saved memories, conversation history, and relationship progress will be permanently deleted. This cannot be undone.',
+    label: 'Clear All Memory'
+  }
 }
 
 export function MemoryControls({
@@ -19,121 +44,89 @@ export function MemoryControls({
   onClearLongTermMemory,
   onClearAllMemory
 }: MemoryControlsProps): React.JSX.Element {
-  const [isConfirmingClearAll, setIsConfirmingClearAll] = useState(false)
+  const [pendingClear, setPendingClear] = useState<ClearOperation>()
 
-  const clearConversation = async (): Promise<void> => {
-    if (
-      window.confirm(
-        'Clear conversation history? Your saved profile and long-term memories will remain.'
-      )
-    ) {
-      await onClearConversation()
-    }
-  }
+  const confirmClear = async (): Promise<void> => {
+    if (!pendingClear) return
 
-  const clearLongTermMemory = async (): Promise<void> => {
-    if (
-      window.confirm(
-        'Clear all profile information and saved long-term memories? Conversation history will remain.'
-      )
-    ) {
-      await onClearLongTermMemory()
-    }
-  }
+    const succeeded = pendingClear === 'conversation'
+      ? await onClearConversation()
+      : pendingClear === 'long-term'
+        ? await onClearLongTermMemory()
+        : await onClearAllMemory()
 
-  const confirmClearAll = async (): Promise<void> => {
-    if (await onClearAllMemory()) {
-      setIsConfirmingClearAll(false)
-    }
+    if (succeeded) setPendingClear(undefined)
   }
 
   return (
     <>
-      <section className="memory-section" aria-labelledby="settings-heading">
-        <div className="memory-section-heading">
-          <div>
-            <p className="memory-eyebrow">Memory settings</p>
-            <h2 id="settings-heading">Long-term memory</h2>
-          </div>
-          <label className="memory-toggle">
-            <input
-              type="checkbox"
-              role="switch"
-              checked={longTermMemoryEnabled}
-              disabled={disabled}
-              onChange={(event) => void onSetEnabled(event.currentTarget.checked)}
-            />
-            <span aria-hidden="true" />
-            <strong>{longTermMemoryEnabled ? 'On' : 'Off'}</strong>
-          </label>
-        </div>
-        <p className="memory-explanation">
-          {longTermMemoryEnabled
-            ? 'Your pet may save useful details and use relevant saved memories in future conversations.'
-            : 'New details are not saved and existing memories are not used in AI replies. Existing data stays on this device until you delete it. Explicit remember requests are not stored while this is off.'}
-        </p>
-      </section>
+      <Section
+        eyebrow="Memory Settings"
+        title="Long-term Memory"
+        description="Useful details stay private on this device and can personalize future conversations."
+        aside={<Badge tone={longTermMemoryEnabled ? 'success' : 'neutral'}>{longTermMemoryEnabled ? 'On' : 'Off'}</Badge>}
+      >
+        <Switch
+          label="Remember useful details"
+          description={longTermMemoryEnabled ? 'Relevant saved memories may be used in future replies.' : 'Existing memories are kept but are not used or updated.'}
+          checked={longTermMemoryEnabled}
+          disabled={disabled}
+          onChange={(enabled) => void onSetEnabled(enabled)}
+        />
+      </Section>
 
-      <section className="memory-section" aria-labelledby="conversation-heading">
-        <div className="memory-section-heading">
-          <div>
-            <p className="memory-eyebrow">Conversation</p>
-            <h2 id="conversation-heading">Conversation history</h2>
-          </div>
-          <span className="memory-count">{conversationMessageCount}</span>
-        </div>
-        <p className="memory-explanation">
-          Conversation history is stored separately from profile information and long-term memories.
-        </p>
-        <button
-          className="secondary-button"
+      <Section
+        eyebrow="Conversation"
+        title="Conversation History"
+        description="Recent messages are stored separately from your profile and saved memories."
+        aside={<Badge>{conversationMessageCount} message{conversationMessageCount === 1 ? '' : 's'}</Badge>}
+      >
+        <Button
           type="button"
+          variant="tertiary"
           disabled={disabled || conversationMessageCount === 0}
-          onClick={() => void clearConversation()}
+          onClick={() => setPendingClear('conversation')}
         >
-          Clear conversation history
-        </button>
-      </section>
+          Clear Conversation History
+        </Button>
+      </Section>
 
-      <section className="memory-section danger-zone" aria-labelledby="clear-heading">
-        <div className="memory-section-heading">
-          <div>
-            <p className="memory-eyebrow">Privacy controls</p>
-            <h2 id="clear-heading">Clear saved data</h2>
-          </div>
+      <Section
+        eyebrow="Privacy & Data Controls"
+        title="Clear Saved Data"
+        description="Choose exactly which local data to remove."
+        tone="danger"
+      >
+        <div className="memory-clear-row">
+          <span className="ui-setting-copy">
+            <strong>Long-term Memory</strong>
+            <small>Delete profile information and saved memories only.</small>
+          </span>
+          <Button type="button" variant="tertiary" disabled={disabled} onClick={() => setPendingClear('long-term')}>
+            Clear…
+          </Button>
         </div>
-        <div className="clear-control-list">
-          <div>
-            <div>
-              <strong>Clear long-term memories</strong>
-              <p>Deletes profile information and saved memories, but keeps conversation history.</p>
-            </div>
-            <button className="danger-button" type="button" disabled={disabled} onClick={() => void clearLongTermMemory()}>
-              Clear long-term
-            </button>
-          </div>
-          <div>
-            <div>
-              <strong>Clear all memory</strong>
-              <p>Deletes profile information, saved memories, conversation history, and relationship progress.</p>
-            </div>
-            {isConfirmingClearAll ? (
-              <div className="clear-all-confirmation" role="group" aria-label="Confirm clear all memory">
-                <button className="danger-button" type="button" disabled={disabled} onClick={() => void confirmClearAll()}>
-                  Confirm clear all
-                </button>
-                <button className="secondary-button" type="button" disabled={disabled} onClick={() => setIsConfirmingClearAll(false)}>
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button className="danger-button" type="button" disabled={disabled} onClick={() => setIsConfirmingClearAll(true)}>
-                Clear all…
-              </button>
-            )}
-          </div>
+        <div className="memory-clear-row">
+          <span className="ui-setting-copy">
+            <strong>All Memory</strong>
+            <small>Delete every saved conversation, memory, profile detail, and relationship record.</small>
+          </span>
+          <Button type="button" variant="destructive" disabled={disabled} onClick={() => setPendingClear('all')}>
+            Clear All…
+          </Button>
         </div>
-      </section>
+      </Section>
+
+      {pendingClear ? (
+        <ConfirmDialog
+          title={CONFIRMATIONS[pendingClear].title}
+          description={CONFIRMATIONS[pendingClear].description}
+          confirmLabel={CONFIRMATIONS[pendingClear].label}
+          busy={disabled}
+          onConfirm={() => void confirmClear()}
+          onCancel={() => setPendingClear(undefined)}
+        />
+      ) : null}
     </>
   )
 }

@@ -1,3 +1,5 @@
+import { IconButton } from '../ui/Button'
+import { ManagementPage, StatusMessage } from '../ui/ManagementPage'
 import { MemoriesSection } from './MemoriesSection'
 import { MemoryControls } from './MemoryControls'
 import { ProfileSection } from './ProfileSection'
@@ -8,30 +10,26 @@ export function MemoryApp(): React.JSX.Element {
   const memory = useMemoryManagement()
 
   return (
-    <main className="memory-settings-shell">
-      <header className="memory-page-header">
-        <div>
-          <p className="memory-eyebrow">AI Desktop Pet</p>
-          <h1>Memory &amp; Privacy</h1>
-          <p>See and control what your pet remembers on this device.</p>
-        </div>
-        <button
-          className="secondary-button"
-          type="button"
+    <ManagementPage
+      title="Memory & Privacy"
+      description="Review and control what your companion remembers on this device."
+      className="memory-settings-shell"
+      actions={import.meta.env.DEV ? (
+        <IconButton
+          icon="refresh"
+          label="Refresh memory"
           disabled={memory.isLoading || memory.isMutating}
           onClick={() => void memory.refresh()}
-        >
-          Refresh
-        </button>
-      </header>
-
-      {memory.error ? <p className="memory-alert memory-alert-error">{memory.error}</p> : null}
-      {memory.notice ? <p className="memory-alert memory-alert-success">{memory.notice}</p> : null}
+        />
+      ) : undefined}
+    >
+      {memory.error ? <StatusMessage tone="error">{memory.error}</StatusMessage> : null}
+      {memory.notice ? <StatusMessage tone="success">{memory.notice}</StatusMessage> : null}
 
       {memory.isLoading && !memory.overview ? (
-        <p className="memory-loading">Loading saved memory…</p>
+        <StatusMessage>Loading saved memory…</StatusMessage>
       ) : memory.overview ? (
-        <div className="memory-section-list" aria-busy={memory.isMutating}>
+        <div className="ui-section-list" aria-busy={memory.isMutating}>
           <MemoryControls
             longTermMemoryEnabled={memory.overview.settings.longTermMemoryEnabled}
             conversationMessageCount={memory.overview.conversationMessageCount}
@@ -62,6 +60,6 @@ export function MemoryApp(): React.JSX.Element {
           />
         </div>
       ) : null}
-    </main>
+    </ManagementPage>
   )
 }

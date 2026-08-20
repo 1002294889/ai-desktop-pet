@@ -117,8 +117,8 @@ export class ApplicationTrayController {
       {
         id: 'autonomous-behavior',
         label: settings.autonomousBehaviorEnabled
-          ? 'Pause Autonomous Behavior'
-          : 'Resume Autonomous Behavior',
+          ? 'Pause Movement'
+          : 'Resume Movement',
         click: () => {
           void this.performAction('autonomous-behavior')
         }

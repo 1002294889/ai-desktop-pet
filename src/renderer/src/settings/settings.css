@@ -1,215 +1,30 @@
-html[data-view='settings'],
-html[data-view='settings'] body,
-html[data-view='settings'] #root {
-  width: 100%;
-  min-width: 100%;
-  height: auto;
-  min-height: 100%;
-  overflow: auto;
-  color: #25203e;
-  background: #f7f5ff;
-}
+.app-settings-shell { width: min(100%, 820px); }
 
-html[data-view='settings'] body {
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-html[data-view='settings'] button,
-html[data-view='settings'] input {
-  font: inherit;
-}
-
-.app-settings-shell {
-  width: min(100%, 860px);
-  min-height: 100vh;
-  margin: 0 auto;
-  padding: 32px 28px 46px;
-}
-
-.app-settings-header {
+.settings-status-row {
   display: flex;
-  margin-bottom: 20px;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.app-settings-header h1 {
-  margin: 4px 0 7px;
-  color: #2e2559;
-  font-size: 2.15rem;
-}
-
-.app-settings-header p:last-child,
-.settings-about-section p {
-  margin: 0;
-  color: #6c6484;
-  font-size: 0.85rem;
-  line-height: 1.5;
-}
-
-.app-settings-eyebrow {
-  margin: 0;
-  color: #7c3aed;
-  font-size: 0.68rem;
-  font-weight: 850;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.settings-section-list {
-  display: grid;
-  gap: 14px;
-}
-
-.settings-section {
-  padding: 18px;
-  border: 1px solid #e4dff2;
-  border-radius: 18px;
-  background: white;
-  box-shadow: 0 10px 28px rgb(54 39 112 / 6%);
-}
-
-.settings-section h2 {
-  margin: 0 0 12px;
-  color: #392d6d;
-  font-size: 1rem;
-}
-
-.settings-toggle-row,
-.settings-link-row {
-  display: flex;
-  min-height: 52px;
-  padding: 10px 0;
+  min-height: 50px;
+  padding: 9px 0;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  border-top: 1px solid #f0edf7;
+  gap: 16px;
+  border-top: 1px solid #f0edf3;
 }
 
-.settings-toggle-row:first-of-type {
-  border-top: 0;
-}
+.ui-section-header + .settings-status-row { border-top: 0; }
 
-.settings-toggle-row span,
-.settings-link-row span {
-  display: grid;
-  gap: 4px;
-}
-
-.settings-toggle-row strong,
-.settings-link-row strong {
-  color: #3f3566;
-  font-size: 0.82rem;
-}
-
-.settings-toggle-row small,
-.settings-link-row small {
-  max-width: 560px;
-  color: #777089;
-  font-size: 0.7rem;
+.settings-inline-note {
+  margin: 6px 0 2px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  color: var(--ui-warning);
+  background: var(--ui-warning-soft);
+  font-size: 0.69rem;
   line-height: 1.45;
 }
 
-.settings-toggle-row input {
-  width: 38px;
-  height: 21px;
-  flex: 0 0 auto;
-  accent-color: #7c3aed;
-  cursor: pointer;
-}
+.settings-section-action { padding-top: 9px; border-top: 1px solid #f0edf3; }
 
-.settings-secondary-button {
-  min-height: 35px;
-  padding: 8px 12px;
-  flex-shrink: 0;
-  border: 1px solid #ddd6ee;
-  border-radius: 10px;
-  color: #5f527c;
-  background: white;
-  font-size: 0.73rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.settings-status-grid {
-  display: grid;
-  margin: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.settings-status-grid div {
-  padding: 10px;
-  border-radius: 11px;
-  background: #faf9fe;
-}
-
-.settings-status-grid dt {
-  color: #817795;
-  font-size: 0.62rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.settings-status-grid dd {
-  margin: 4px 0 0;
-  color: #493c6b;
-  font-size: 0.76rem;
-  font-weight: 750;
-}
-
-.settings-security-note {
-  margin: 12px 0 0;
-  color: #166534;
-  font-size: 0.7rem;
-}
-
-.settings-alert,
-.settings-loading {
-  margin: 0 0 14px;
-  padding: 10px 13px;
-  border-radius: 11px;
-  font-size: 0.78rem;
-}
-
-.settings-alert-error {
-  color: #9f1239;
-  background: #fff1f2;
-}
-
-.settings-alert-success {
-  color: #166534;
-  background: #f0fdf4;
-}
-
-.settings-loading {
-  color: #706987;
-}
-
-.settings-about-section > strong {
-  display: block;
-  margin-bottom: 4px;
-  color: #3f3566;
-}
-
-html[data-view='settings'] button:disabled,
-html[data-view='settings'] input:disabled {
-  cursor: default;
-  opacity: 0.48;
-}
-
-@media (max-width: 680px) {
-  .app-settings-shell {
-    padding: 22px 17px 34px;
-  }
-
-  .app-settings-header {
-    flex-direction: column;
-  }
-
-  .settings-status-grid {
-    grid-template-columns: 1fr;
-  }
-}
+.settings-about-product { display: flex; margin-bottom: 10px; align-items: center; gap: 10px; }
+.settings-about-mark { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; color: var(--ui-brand); background: var(--ui-brand-soft); }
+.settings-about-product strong { color: #403951; font-size: 0.84rem; }
+.settings-about-product p, .settings-about-section > p { margin: 2px 0 0; color: var(--ui-text-secondary); font-size: 0.72rem; line-height: 1.5; }

@@ -17,6 +17,7 @@ import type {
 } from './companion-state'
 import type { PetMovementDirection, PetMovementEdge, PetMovementSnapshot } from './pet-movement'
 import type { PetPointerPosition } from './pet-pointer-drag'
+import type { UserPetAction } from './pet-user-action'
 import type {
   ClearMemoryResult,
   DeleteMemoryItemResult,
@@ -56,6 +57,7 @@ export interface DesktopApi {
   startPetPointerDrag: (position: PetPointerPosition) => void
   updatePetPointerDrag: (position: PetPointerPosition) => void
   endPetPointerDrag: () => void
+  onPetUserAction: (listener: (action: UserPetAction) => void) => () => void
   getChatState: () => Promise<ChatState>
   onChatStateChange: (listener: (state: ChatState) => void) => () => void
   onChatPetActions: (listener: (actions: readonly AIPetAction[]) => void) => () => void

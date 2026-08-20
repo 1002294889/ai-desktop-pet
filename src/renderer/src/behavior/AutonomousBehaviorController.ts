@@ -387,9 +387,18 @@ export class AutonomousBehaviorController {
   }
 
   private chooseNextAction(): AutonomousAction {
-    const availableActions = this.getWeightedActions().filter(
-      ({ action }) => action !== this.lastPlannedAction
-    )
+    const availableActions = this.getWeightedActions()
+      .filter(({ action }) => action !== this.lastPlannedAction)
+      .map(({ action, weight }) => ({
+        action,
+        weight:
+          weight *
+          getTransitionWeightMultiplier(
+            this.lastPlannedAction,
+            action,
+            this.emotion
+          )
+      }))
     const totalWeight = availableActions.reduce((total, { weight }) => total + weight, 0)
     let selectedWeight = this.random() * totalWeight
 
@@ -491,6 +500,31 @@ export class AutonomousBehaviorController {
       listener()
     }
   }
+}
+
+function getTransitionWeightMultiplier(
+  previous: AutonomousAction | null,
+  next: AutonomousAction,
+  emotion: EmotionSnapshot
+): number {
+  if (previous === 'walk_left' || previous === 'walk_right') {
+    if (next === 'idle') return 1.9
+    if (next === 'sit') return 1.25
+    if (next === 'sleep') return 0.35
+    return 0.42
+  }
+
+  if (previous === 'sit') {
+    if (next === 'idle') return 1.45
+    if (next === 'sleep') return 1.2 + emotion.intensity * (emotion.state === 'sleepy' ? 1.5 : 0.25)
+    if (next === 'walk_left' || next === 'walk_right') return 0.68
+  }
+
+  if (previous === 'idle' && next === 'sleep') {
+    return emotion.state === 'sleepy' ? 1.35 + emotion.intensity : 0.55
+  }
+
+  return 1
 }
 
 function isActiveIdle(state: PetActionState): boolean {

@@ -256,7 +256,9 @@ async function startApplication(): Promise<void> {
     reportProviderErrors: !app.isPackaged,
     onPetVisibilityRequested: async (visible) => {
       await requireSettingsService().update({ key: 'petVisible', value: visible })
-    }
+    },
+    openSettings: () => settingsWindowController?.open(),
+    onQuitRequested: requestApplicationQuit
   })
   unregisterSettingsHandlers = registerSettingsHandlers({
     settingsService: requireSettingsService(),

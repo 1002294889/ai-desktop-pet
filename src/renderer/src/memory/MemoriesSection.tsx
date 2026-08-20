@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 
-import {
-  MEMORY_CATEGORIES,
-  type ManagedMemory,
-  type MemoryCategoryFilter
-} from '../../../shared/memory-management'
+import { MEMORY_CATEGORIES, type ManagedMemory, type MemoryCategoryFilter } from '../../../shared/memory-management'
+import { Button, IconButton } from '../ui/Button'
+import { ConfirmDialog } from '../ui/Dialog'
+import { Icon } from '../ui/Icon'
+import { Badge, EmptyState, Section } from '../ui/ManagementPage'
 import { formatMemoryDate, MEMORY_CATEGORY_LABELS } from './memory-labels'
 
 interface MemoriesSectionProps {
@@ -20,154 +20,94 @@ interface MemoriesSectionProps {
   onDelete: (id: number) => Promise<boolean>
 }
 
-export function MemoriesSection({
-  memories,
-  totalCount,
-  hasMore,
-  category,
-  search,
-  disabled,
-  onCategoryChange,
-  onSearchChange,
-  onUpdate,
-  onDelete
-}: MemoriesSectionProps): React.JSX.Element {
+export function MemoriesSection({ memories, totalCount, hasMore, category, search, disabled, onCategoryChange, onSearchChange, onUpdate, onDelete }: MemoriesSectionProps): React.JSX.Element {
+  const hasFilters = Boolean(search.trim()) || category !== 'all'
+
   return (
-    <section className="memory-section" aria-labelledby="memories-heading">
-      <div className="memory-section-heading">
-        <div>
-          <p className="memory-eyebrow">Memories</p>
-          <h2 id="memories-heading">Saved moments and preferences</h2>
-        </div>
-        <span className="memory-count">{totalCount}</span>
-      </div>
+    <Section
+      eyebrow="Saved Memories"
+      title="Moments & Preferences"
+      description="Important details retained from past conversations."
+      aside={<Badge>{totalCount}</Badge>}
+    >
       <div className="memory-filters">
         <label>
-          <span>Search</span>
-          <input
-            type="search"
-            maxLength={200}
-            placeholder="Search what your pet remembers"
-            value={search}
-            onChange={(event) => onSearchChange(event.currentTarget.value)}
-          />
+          <span>Search memories</span>
+          <div className="memory-search-field">
+            <Icon name="search" size={16} />
+            <input className="ui-input" type="search" maxLength={200} placeholder="Search saved memories" value={search} onChange={(event) => onSearchChange(event.currentTarget.value)} />
+          </div>
         </label>
         <label>
           <span>Category</span>
-          <select
-            value={category}
-            onChange={(event) => onCategoryChange(event.currentTarget.value as MemoryCategoryFilter)}
-          >
-            <option value="all">All</option>
-            {MEMORY_CATEGORIES.map((memoryCategory) => (
-              <option key={memoryCategory} value={memoryCategory}>
-                {MEMORY_CATEGORY_LABELS[memoryCategory]}
-              </option>
-            ))}
+          <select className="ui-select" value={category} onChange={(event) => onCategoryChange(event.currentTarget.value as MemoryCategoryFilter)}>
+            <option value="all">All categories</option>
+            {MEMORY_CATEGORIES.map((memoryCategory) => <option key={memoryCategory} value={memoryCategory}>{MEMORY_CATEGORY_LABELS[memoryCategory]}</option>)}
           </select>
         </label>
       </div>
       {memories.length === 0 ? (
-        <p className="memory-empty">No matching saved memories.</p>
+        <EmptyState
+          icon="memory"
+          title={hasFilters ? 'No matching memories' : 'No saved memories yet'}
+          description={hasFilters ? 'Try another search term or category.' : 'Meaningful details your companion remembers will appear here.'}
+        />
       ) : (
         <div className="managed-memory-list">
-          {memories.map((memory) => (
-            <MemoryEntryEditor
-              key={memory.id}
-              memory={memory}
-              disabled={disabled}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-            />
-          ))}
+          {memories.map((memory) => <MemoryEntryEditor key={memory.id} memory={memory} disabled={disabled} onUpdate={onUpdate} onDelete={onDelete} />)}
         </div>
       )}
-      {hasMore ? (
-        <p className="memory-limit-note">Showing the most recent matching memories.</p>
-      ) : null}
-    </section>
+      {hasMore ? <p className="memory-limit-note">Showing the most recent matching memories.</p> : null}
+    </Section>
   )
 }
 
-interface MemoryEntryEditorProps {
+function MemoryEntryEditor({ memory, disabled, onUpdate, onDelete }: {
   memory: ManagedMemory
   disabled: boolean
   onUpdate: (id: number, content: string) => Promise<boolean>
   onDelete: (id: number) => Promise<boolean>
-}
-
-function MemoryEntryEditor({
-  memory,
-  disabled,
-  onUpdate,
-  onDelete
-}: MemoryEntryEditorProps): React.JSX.Element {
+}): React.JSX.Element {
   const [isEditing, setIsEditing] = useState(false)
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [content, setContent] = useState(memory.content)
 
   useEffect(() => setContent(memory.content), [memory.content])
 
   const save = async (): Promise<void> => {
-    const normalizedContent = content.trim()
-
-    if (normalizedContent && (await onUpdate(memory.id, normalizedContent))) {
-      setIsEditing(false)
-    }
+    if (content.trim() && (await onUpdate(memory.id, content.trim()))) setIsEditing(false)
   }
 
   const remove = async (): Promise<void> => {
-    if (window.confirm('Delete this saved memory?')) {
-      await onDelete(memory.id)
-    }
+    if (await onDelete(memory.id)) setIsConfirmingDelete(false)
   }
 
   return (
     <article className="managed-memory-entry">
       <div className="memory-entry-meta">
-        <span>{MEMORY_CATEGORY_LABELS[memory.category]}</span>
-        <span>{formatMemoryDate(memory.createdAt)}</span>
-        <span>Importance {Math.round(memory.importance * 100)}%</span>
+        <Badge tone="brand">{MEMORY_CATEGORY_LABELS[memory.category]}</Badge>
+        <time dateTime={new Date(memory.createdAt).toISOString()}>{formatMemoryDate(memory.createdAt)}</time>
+        {import.meta.env.DEV ? <span>Importance {Math.round(memory.importance * 100)}%</span> : null}
       </div>
       {isEditing ? (
-        <textarea
-          aria-label={`Edit ${MEMORY_CATEGORY_LABELS[memory.category]} memory`}
-          maxLength={50_000}
-          rows={3}
-          value={content}
-          onChange={(event) => setContent(event.currentTarget.value)}
-        />
-      ) : (
-        <p>{memory.content}</p>
-      )}
+        <textarea className="ui-textarea" autoFocus aria-label={`Edit ${MEMORY_CATEGORY_LABELS[memory.category]} memory`} maxLength={50_000} rows={3} value={content} onChange={(event) => setContent(event.currentTarget.value)} />
+      ) : <p>{memory.content}</p>}
       <div className="memory-entry-actions">
         {isEditing ? (
           <>
-            <button type="button" disabled={disabled || !content.trim()} onClick={() => void save()}>
-              Save
-            </button>
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={disabled}
-              onClick={() => {
-                setContent(memory.content)
-                setIsEditing(false)
-              }}
-            >
-              Cancel
-            </button>
+            <Button type="button" variant="primary" disabled={disabled || !content.trim()} onClick={() => void save()}>Save</Button>
+            <Button type="button" disabled={disabled} onClick={() => { setContent(memory.content); setIsEditing(false) }}>Cancel</Button>
           </>
         ) : (
           <>
-            <button type="button" disabled={disabled} onClick={() => setIsEditing(true)}>
-              Edit
-            </button>
-            <button className="danger-link" type="button" disabled={disabled} onClick={() => void remove()}>
-              Delete
-            </button>
+            <IconButton icon="edit" label="Edit memory" size="small" disabled={disabled} onClick={() => setIsEditing(true)} />
+            <IconButton icon="delete" label="Delete memory" size="small" disabled={disabled} onClick={() => setIsConfirmingDelete(true)} />
           </>
         )}
       </div>
+      {isConfirmingDelete ? (
+        <ConfirmDialog title="Delete this memory?" description="This saved memory will be permanently removed from your device." confirmLabel="Delete Memory" busy={disabled} onConfirm={() => void remove()} onCancel={() => setIsConfirmingDelete(false)} />
+      ) : null}
     </article>
   )
 }

@@ -36,6 +36,7 @@ import {
   isPetMovementSnapshot
 } from '../shared/pet-movement'
 import { isPetPointerPosition } from '../shared/pet-pointer-drag'
+import { isUserPetAction } from '../shared/pet-user-action'
 
 const desktopApi: DesktopApi = {
   getAppVersion: () => ipcRenderer.invoke(IPC_CHANNELS.getAppVersion) as Promise<string>,
@@ -232,6 +233,19 @@ const desktopApi: DesktopApi = {
   },
   endPetPointerDrag: () => {
     ipcRenderer.send(IPC_CHANNELS.petPointerDragEnd)
+  },
+  onPetUserAction: (listener) => {
+    const handleUserAction = (_event: Electron.IpcRendererEvent, action: unknown): void => {
+      if (isUserPetAction(action)) {
+        listener(action)
+      }
+    }
+
+    ipcRenderer.on(IPC_CHANNELS.petUserActionRequested, handleUserAction)
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.petUserActionRequested, handleUserAction)
+    }
   },
   getChatState: async () => {
     const state: unknown = await ipcRenderer.invoke(IPC_CHANNELS.getChatState)
