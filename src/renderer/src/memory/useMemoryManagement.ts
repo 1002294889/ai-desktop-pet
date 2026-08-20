@@ -72,6 +72,22 @@ export function useMemoryManagement(): MemoryManagementState {
     return () => window.clearTimeout(timer)
   }, [loadOverview, query])
 
+  useEffect(() => {
+    return window.desktopApi.onAppSettingsChange((appSettings) => {
+      setOverview((current) =>
+        current
+          ? {
+              ...current,
+              settings: {
+                longTermMemoryEnabled:
+                  appSettings.settings.longTermMemoryEnabled
+              }
+            }
+          : current
+      )
+    })
+  }, [])
+
   const runMutation = useCallback(
     async (operation: () => Promise<unknown>, successMessage: string): Promise<boolean> => {
       setIsMutating(true)

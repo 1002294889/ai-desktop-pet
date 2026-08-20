@@ -8,12 +8,14 @@ import {
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import type { MemoryService } from '../memory/MemoryService'
 import { MemoryManagerError } from '../memory/memory-manager-error'
+import type { SettingsManager } from '../settings/SettingsManager'
 import type { MemoryWindowController } from '../windows/MemoryWindowController'
 
 export function registerMemoryHandlers(
   petWindow: BrowserWindow,
   memoryWindowController: MemoryWindowController,
-  memoryService: MemoryService
+  memoryService: MemoryService,
+  settingsManager: SettingsManager
 ): () => void {
   const assertMemoryWindowSender = (event: IpcMainInvokeEvent): void => {
     if (event.sender !== memoryWindowController.getWebContents()) {
@@ -72,14 +74,19 @@ export function registerMemoryHandlers(
 
     return { deleted: memoryService.deleteMemory(id as number) }
   }
-  const handleSetEnabled = (event: IpcMainInvokeEvent, enabled: unknown) => {
+  const handleSetEnabled = async (event: IpcMainInvokeEvent, enabled: unknown) => {
     assertMemoryWindowSender(event)
 
     if (typeof enabled !== 'boolean') {
       throw new MemoryManagerError('invalid-input')
     }
 
-    return memoryService.setLongTermMemoryEnabled(enabled)
+    const settings = await settingsManager.setSetting(
+      'longTermMemoryEnabled',
+      enabled
+    )
+
+    return { longTermMemoryEnabled: settings.longTermMemoryEnabled }
   }
   const handleClearConversation = (event: IpcMainInvokeEvent) => {
     assertMemoryWindowSender(event)

@@ -5,6 +5,7 @@ import { App } from './App'
 import { ChatApp } from './chat/ChatApp'
 import { CharacterManagerApp } from './characters/CharacterManagerApp'
 import { MemoryApp } from './memory/MemoryApp'
+import { SettingsApp } from './settings/SettingsApp'
 import './styles.css'
 
 const root = document.getElementById('root')
@@ -21,6 +22,8 @@ if (view === 'memory') {
   document.title = 'Memory & Privacy — AI Desktop Pet'
 } else if (view === 'characters') {
   document.title = 'Characters — AI Desktop Pet'
+} else if (view === 'settings') {
+  document.title = 'Settings — AI Desktop Pet'
 }
 
 createRoot(root).render(
@@ -31,6 +34,8 @@ createRoot(root).render(
       <MemoryApp />
     ) : view === 'characters' ? (
       <CharacterManagerApp />
+    ) : view === 'settings' ? (
+      <SettingsApp />
     ) : (
       <App />
     )}

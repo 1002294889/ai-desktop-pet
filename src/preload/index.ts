@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import { isAIPetActionSequence } from '../shared/ai-pet-action'
+import {
+  isAppSettingsOverview,
+  isSettingsDestination,
+  isUpdateAppSettingInput
+} from '../shared/app-settings'
 import { isLoadedCharacter } from '../shared/character'
 import {
   isCharacterManagerOverview,
@@ -34,6 +39,56 @@ import { isPetPointerPosition } from '../shared/pet-pointer-drag'
 
 const desktopApi: DesktopApi = {
   getAppVersion: () => ipcRenderer.invoke(IPC_CHANNELS.getAppVersion) as Promise<string>,
+  openAppSettings: () => ipcRenderer.send(IPC_CHANNELS.openAppSettings),
+  getAppSettings: async () => {
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.getAppSettings)
+
+    if (!isAppSettingsOverview(result)) {
+      throw new Error('Main process returned invalid application settings')
+    }
+
+    return result
+  },
+  updateAppSetting: async (input) => {
+    if (!isUpdateAppSettingInput(input)) {
+      throw new Error('Invalid application setting update')
+    }
+
+    const result: unknown = await ipcRenderer.invoke(
+      IPC_CHANNELS.updateAppSetting,
+      input
+    )
+
+    if (!isAppSettingsOverview(result)) {
+      throw new Error('Main process returned invalid application settings')
+    }
+
+    return result
+  },
+  onAppSettingsChange: (listener) => {
+    const handleSettingsChange = (
+      _event: Electron.IpcRendererEvent,
+      overview: unknown
+    ): void => {
+      if (isAppSettingsOverview(overview)) {
+        listener(overview)
+      }
+    }
+
+    ipcRenderer.on(IPC_CHANNELS.appSettingsChanged, handleSettingsChange)
+
+    return () => {
+      ipcRenderer.removeListener(
+        IPC_CHANNELS.appSettingsChanged,
+        handleSettingsChange
+      )
+    }
+  },
+  openSettingsDestination: (destination) => {
+    if (isSettingsDestination(destination)) {
+      ipcRenderer.send(IPC_CHANNELS.openSettingsDestination, destination)
+    }
+  },
   getActiveCharacter: async () => {
     const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.getActiveCharacter)
 

@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 
-import { app, BrowserWindow } from 'electron'
+import { app } from 'electron'
 
 import { loadAIConfiguration } from './ai/config'
 import { createAIProvider } from './ai/provider-factory'
@@ -14,6 +14,8 @@ import {
   registerCharacterProtocolScheme
 } from './characters/character-protocol'
 import { loadDevelopmentEnvironment } from './config/development-environment'
+import { createCompanionStateCoordinator } from './companion/CompanionStateCoordinator'
+import type { CompanionStateCoordinator } from './companion/CompanionStateCoordinator'
 import {
   getCompanionProbeMode,
   runCompanionProbe
@@ -23,7 +25,10 @@ import {
   runConversationPacingProbe
 } from './chat/development-conversation-pacing-probe'
 import { registerAppInfoHandlers } from './ipc/app-info'
+import { registerSettingsHandlers } from './ipc/settings'
+import { createLongTermMemoryCoordinator } from './memory/LongTermMemoryCoordinator'
 import { MemoryManager } from './memory/MemoryManager'
+import { MemoryService } from './memory/MemoryService'
 import {
   configureDevelopmentMemoryTest,
   runDevelopmentMemoryProbe
@@ -37,11 +42,34 @@ import {
   runMemoryManagementProbe
 } from './memory/development-memory-management-probe'
 import { MemoryManagerError } from './memory/memory-manager-error'
-import { createPetWindow } from './windows/pet-window'
+import { ApplicationSettingsService } from './settings/ApplicationSettingsService'
+import { ElectronLoginItemController } from './settings/LoginItemController'
+import { SettingsManager } from './settings/SettingsManager'
+import {
+  getSettingsProbeMode,
+  runSettingsProbe
+} from './settings/development-settings-probe'
+import { ApplicationTrayController } from './tray/ApplicationTrayController'
+import {
+  createPetWindow,
+  type DesktopPetRuntime
+} from './windows/pet-window'
+import { SettingsWindowController } from './windows/SettingsWindowController'
+import { IPC_CHANNELS } from '../shared/ipc-channels'
 
 registerCharacterProtocolScheme()
+app.setName('AI Desktop Pet')
 
 let memoryManager: MemoryManager | undefined
+let settingsManager: SettingsManager | undefined
+let settingsService: ApplicationSettingsService | undefined
+let companionState: CompanionStateCoordinator | undefined
+let petRuntime: DesktopPetRuntime | undefined
+let settingsWindowController: SettingsWindowController | undefined
+let trayController: ApplicationTrayController | undefined
+let unregisterSettingsHandlers: (() => void) | undefined
+let unsubscribeFromSettings: (() => void) | undefined
+let isShuttingDown = false
 
 async function startApplication(): Promise<void> {
   const developmentMemoryTestMode = configureDevelopmentMemoryTest(app)
@@ -51,6 +79,18 @@ async function startApplication(): Promise<void> {
   const developmentEnvironment = app.isPackaged
     ? { loaded: false }
     : loadDevelopmentEnvironment(app.getAppPath())
+
+  settingsManager = new SettingsManager({
+    settingsFilePath: join(app.getPath('userData'), 'app-settings.json'),
+    loginItems: new ElectronLoginItemController(app)
+  })
+  await settingsManager.initialize()
+  const settingsProbeMode = app.isPackaged ? undefined : getSettingsProbeMode()
+
+  const databasePath = join(app.getPath('userData'), 'pet-memory.db')
+
+  memoryManager = new MemoryManager({ databasePath })
+  memoryManager.initialize()
 
   const builtInCharactersDirectory = app.isPackaged
     ? join(process.resourcesPath, 'characters')
@@ -62,11 +102,8 @@ async function startApplication(): Promise<void> {
     defaultCharacterId: 'default',
     preferredCharacterId: process.env.DESKTOP_PET_CHARACTER_ID
   })
-  const databasePath = join(app.getPath('userData'), 'pet-memory.db')
 
   await characterManager.initialize()
-  memoryManager = new MemoryManager({ databasePath })
-  memoryManager.initialize()
 
   const characterManagementProbeMode = app.isPackaged
     ? undefined
@@ -113,7 +150,8 @@ async function startApplication(): Promise<void> {
     !app.isPackaged &&
     process.env.DESKTOP_PET_PROBE_ONLY === '1' &&
     conversationPacingProbeMode !== 'deepseek' &&
-    longTermMemoryProbeMode === undefined
+    longTermMemoryProbeMode === undefined &&
+    settingsProbeMode === undefined
   ) {
     app.quit()
     return
@@ -181,22 +219,95 @@ async function startApplication(): Promise<void> {
     }
   }
 
-  const createMainWindow = (): void => {
-    createPetWindow({
-      characterManager,
-      aiProvider,
-      memoryManager: requireMemoryManager(),
-      reportProviderErrors: !app.isPackaged
-    })
-  }
+  const longTermMemory = createLongTermMemoryCoordinator(
+    aiProvider.provider,
+    requireMemoryManager()
+  )
+  companionState = createCompanionStateCoordinator(requireMemoryManager())
+  const memoryService = new MemoryService(
+    requireMemoryManager(),
+    longTermMemory,
+    companionState
+  )
 
-  createMainWindow()
+  requireSettingsManager().bindLongTermMemory({
+    getEnabled: () => memoryService.getSettings().longTermMemoryEnabled,
+    setEnabled: (enabled) =>
+      memoryService.setLongTermMemoryEnabled(enabled).longTermMemoryEnabled
+  })
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow()
+  settingsService = new ApplicationSettingsService({
+    settingsManager: requireSettingsManager(),
+    characterManager,
+    aiProvider,
+    configuredModel: aiConfiguration.deepSeek.model,
+    applicationVersion: app.getVersion()
+  })
+  settingsWindowController = new SettingsWindowController()
+  petRuntime = createPetWindow({
+    characterManager,
+    aiProvider,
+    memoryManager: requireMemoryManager(),
+    longTermMemory,
+    companionState,
+    memoryService,
+    settingsManager: requireSettingsManager(),
+    initialSettings: requireSettingsService().getOverview(),
+    reportProviderErrors: !app.isPackaged,
+    onPetVisibilityRequested: async (visible) => {
+      await requireSettingsService().update({ key: 'petVisible', value: visible })
     }
   })
+  unregisterSettingsHandlers = registerSettingsHandlers({
+    settingsService: requireSettingsService(),
+    settingsWindowController,
+    petRuntime
+  })
+  unsubscribeFromSettings = requireSettingsService().subscribe((overview) => {
+    petRuntime?.notifySettingsChanged(overview)
+
+    const settingsWebContents = settingsWindowController?.getWebContents()
+
+    if (settingsWebContents && !settingsWebContents.isDestroyed()) {
+      settingsWebContents.send(IPC_CHANNELS.appSettingsChanged, overview)
+    }
+  })
+  trayController = new ApplicationTrayController(requireSettingsService(), {
+    openChat: () => petRuntime?.openChat(),
+    openCharacters: () => petRuntime?.openCharacterManager(),
+    openMemory: () => petRuntime?.openMemoryManager(),
+    openSettings: () => settingsWindowController?.open(),
+    quit: requestApplicationQuit
+  })
+
+  if (settingsProbeMode) {
+    await runSettingsProbe(settingsProbeMode, {
+      settingsService: requireSettingsService(),
+      memoryService,
+      petRuntime,
+      settingsWindowController,
+      trayController,
+      repositoryRoot: app.getAppPath(),
+      settingsFilePath: join(app.getPath('userData'), 'app-settings.json')
+    })
+
+    if (process.env.DESKTOP_PET_PROBE_ONLY === '1') {
+      app.quit()
+      return
+    }
+  }
+
+  app.on('activate', handleApplicationActivate)
+
+  if (!app.isPackaged) {
+    console.info(
+      `[SettingsManager] Local settings ready: ${join(app.getPath('userData'), 'app-settings.json')}`
+    )
+    for (const warning of requireSettingsManager().getWarnings()) {
+      console.warn(`[SettingsManager] ${warning}`)
+    }
+    console.info('[Tray] AI Desktop Pet menu is ready.')
+  }
 }
 
 void startApplication().catch((error: unknown) => {
@@ -212,7 +323,47 @@ void startApplication().catch((error: unknown) => {
   app.quit()
 })
 
+app.on('before-quit', () => {
+  shutdownApplication()
+})
+
 app.on('will-quit', () => {
+  shutdownApplication()
+})
+
+app.on('window-all-closed', () => {
+  // The tray/menu-bar icon intentionally keeps the application alive.
+})
+
+function requestApplicationQuit(): void {
+  isShuttingDown = true
+  app.quit()
+}
+
+function shutdownApplication(): void {
+  if (isShuttingDown && !memoryManager && !petRuntime) {
+    return
+  }
+
+  isShuttingDown = true
+  app.off('activate', handleApplicationActivate)
+  unregisterSettingsHandlers?.()
+  unregisterSettingsHandlers = undefined
+  unsubscribeFromSettings?.()
+  unsubscribeFromSettings = undefined
+  trayController?.dispose()
+  trayController = undefined
+  settingsWindowController?.dispose()
+  settingsWindowController = undefined
+  petRuntime?.dispose()
+  petRuntime = undefined
+  settingsService?.dispose()
+  settingsService = undefined
+  settingsManager?.dispose()
+  settingsManager = undefined
+  companionState?.dispose()
+  companionState = undefined
+
   try {
     memoryManager?.close()
   } catch (error: unknown) {
@@ -222,13 +373,13 @@ app.on('will-quit', () => {
   } finally {
     memoryManager = undefined
   }
-})
+}
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
+function handleApplicationActivate(): void {
+  if (!isShuttingDown && settingsService) {
+    void settingsService.update({ key: 'petVisible', value: true })
   }
-})
+}
 
 function requireMemoryManager(): MemoryManager {
   if (!memoryManager) {
@@ -236,4 +387,20 @@ function requireMemoryManager(): MemoryManager {
   }
 
   return memoryManager
+}
+
+function requireSettingsManager(): SettingsManager {
+  if (!settingsManager) {
+    throw new Error('SettingsManager is not initialized')
+  }
+
+  return settingsManager
+}
+
+function requireSettingsService(): ApplicationSettingsService {
+  if (!settingsService) {
+    throw new Error('ApplicationSettingsService is not initialized')
+  }
+
+  return settingsService
 }

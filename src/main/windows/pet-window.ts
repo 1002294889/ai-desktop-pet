@@ -1,7 +1,8 @@
 import { join } from 'node:path'
 
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, type Event, type WebContents } from 'electron'
 
+import type { AppSettingsOverview } from '../../shared/app-settings'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import type { AIProviderSelection } from '../ai/provider-factory'
 import { AIProviderError } from '../ai/ai-provider-error'
@@ -12,20 +13,21 @@ import {
   type ChatProviderReplyDiagnostics,
   type ReplyPlanCancellationDiagnostics
 } from '../chat/ChatController'
-import { createCompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
+import type { CompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
 import { registerChatHandlers } from '../ipc/chat'
 import { registerCompanionStateHandlers } from '../ipc/companion-state'
 import { registerCharacterHandlers } from '../ipc/characters'
 import { registerMemoryHandlers } from '../ipc/memory'
 import { registerPetMovementHandlers } from '../ipc/pet-movement'
 import { registerPetPointerDragHandlers } from '../ipc/pet-pointer-drag'
-import {
-  createLongTermMemoryCoordinator,
-  type LongTermMemoryDiagnostics
+import type {
+  LongTermMemoryCoordinator,
+  LongTermMemoryDiagnostics
 } from '../memory/LongTermMemoryCoordinator'
 import type { MemoryManager } from '../memory/MemoryManager'
 import { MemoryManagerError } from '../memory/memory-manager-error'
-import { MemoryService } from '../memory/MemoryService'
+import type { MemoryService } from '../memory/MemoryService'
+import type { SettingsManager } from '../settings/SettingsManager'
 import { DesktopMovementController } from './DesktopMovementController'
 import { ChatWindowController } from './ChatWindowController'
 import { CharacterWindowController } from './CharacterWindowController'
@@ -40,10 +42,26 @@ export interface CreatePetWindowOptions {
   characterManager: CharacterManager
   aiProvider: AIProviderSelection
   memoryManager: MemoryManager
+  longTermMemory: LongTermMemoryCoordinator
+  companionState: CompanionStateCoordinator
+  memoryService: MemoryService
+  settingsManager: SettingsManager
+  initialSettings: AppSettingsOverview
   reportProviderErrors: boolean
+  onPetVisibilityRequested: (visible: boolean) => Promise<void>
 }
 
-export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow {
+export interface DesktopPetRuntime {
+  getPetWindow: () => BrowserWindow
+  getTrustedWebContents: () => WebContents[]
+  openChat: () => void
+  openCharacterManager: () => void
+  openMemoryManager: () => void
+  notifySettingsChanged: (overview: AppSettingsOverview) => void
+  dispose: () => void
+}
+
+export function createPetWindow(options: CreatePetWindowOptions): DesktopPetRuntime {
   const initialCharacter = options.characterManager.getActiveCharacter()
   const initialPosition = getInitialWindowPosition({
     width: PET_WINDOW_SIZE,
@@ -60,7 +78,7 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
-    alwaysOnTop: true,
+    alwaysOnTop: options.initialSettings.settings.alwaysOnTop,
     skipTaskbar: true,
     resizable: false,
     maximizable: false,
@@ -78,23 +96,13 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
 
   const movementController = new DesktopMovementController(window)
   const pointerDragController = new PetPointerDragController(window, movementController)
-  const longTermMemory = createLongTermMemoryCoordinator(
-    options.aiProvider.provider,
-    options.memoryManager
-  )
-  const companionState = createCompanionStateCoordinator(options.memoryManager)
-  const memoryService = new MemoryService(
-    options.memoryManager,
-    longTermMemory,
-    companionState
-  )
   const chatController = new ChatController({
     characterName: initialCharacter.manifest.name,
     provider: options.aiProvider.provider,
     providerInfo: options.aiProvider.info,
     memoryManager: options.memoryManager,
-    longTermMemory,
-    companionState,
+    longTermMemory: options.longTermMemory,
+    companionState: options.companionState,
     onProviderError: options.reportProviderErrors ? logProviderError : undefined,
     onProviderReply: options.reportProviderErrors ? logProviderReply : undefined,
     onReplyPlanCancelled: options.reportProviderErrors
@@ -119,12 +127,13 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
   const unregisterMemoryHandlers = registerMemoryHandlers(
     window,
     memoryWindowController,
-    memoryService
+    options.memoryService,
+    options.settingsManager
   )
   const unregisterCompanionStateHandlers = registerCompanionStateHandlers(
     window,
     memoryWindowController,
-    companionState
+    options.companionState
   )
   const unregisterCharacterHandlers = registerCharacterHandlers({
     petWindow: window,
@@ -144,8 +153,17 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     onDragStart: () => movementController.stop(),
     shouldIgnoreMove: () => movementController.wasRecentProgrammaticMove()
   })
-  attachWindowBoundsGuard(window)
-  window.once('closed', () => {
+  let settingsOverview = options.initialSettings
+  let isReadyToShow = false
+  let allowWindowClose = false
+  let isDisposed = false
+
+  const cleanup = (): void => {
+    if (isDisposed) {
+      return
+    }
+
+    isDisposed = true
     unregisterMovementHandlers()
     unregisterPointerDragHandlers()
     unregisterChatHandlers()
@@ -157,11 +175,28 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     characterWindowController.dispose()
     memoryWindowController.dispose()
     chatController.dispose()
-    companionState.dispose()
     pointerDragController.dispose()
     movementController.dispose()
+  }
+  const handleClose = (event: Event): void => {
+    if (allowWindowClose) {
+      return
+    }
+
+    event.preventDefault()
+    void options.onPetVisibilityRequested(false)
+  }
+
+  attachWindowBoundsGuard(window)
+  window.on('close', handleClose)
+  window.once('closed', cleanup)
+  window.once('ready-to-show', () => {
+    isReadyToShow = true
+    applyWindowSettings(window, settingsOverview)
   })
-  window.once('ready-to-show', () => window.show())
+  window.webContents.on('did-finish-load', () => {
+    sendSettingsToWebContents(window.webContents, settingsOverview)
+  })
 
   if (process.env.ELECTRON_RENDERER_URL) {
     void window.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -169,7 +204,80 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     void window.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  return window
+  return {
+    getPetWindow: () => window,
+    getTrustedWebContents: () =>
+      [
+        window.webContents,
+        chatWindowController.getWebContents(),
+        memoryWindowController.getWebContents(),
+        characterWindowController.getWebContents()
+      ].filter((webContents): webContents is WebContents => webContents !== undefined),
+    openChat: () => chatController.openChat(),
+    openCharacterManager: () => characterWindowController.open(),
+    openMemoryManager: () => memoryWindowController.open(),
+    notifySettingsChanged: (overview) => {
+      settingsOverview = overview
+      applyWindowSettings(window, overview, isReadyToShow)
+
+      for (const webContents of [
+        window.webContents,
+        chatWindowController.getWebContents(),
+        memoryWindowController.getWebContents(),
+        characterWindowController.getWebContents()
+      ]) {
+        if (webContents && !webContents.isDestroyed()) {
+          sendSettingsToWebContents(webContents, overview)
+        }
+      }
+    },
+    dispose: () => {
+      if (isDisposed) {
+        return
+      }
+
+      allowWindowClose = true
+      window.off('close', handleClose)
+      cleanup()
+
+      if (!window.isDestroyed()) {
+        window.destroy()
+      }
+    }
+  }
+}
+
+function applyWindowSettings(
+  window: BrowserWindow,
+  overview: AppSettingsOverview,
+  isReadyToShow = true
+): void {
+  if (window.isDestroyed()) {
+    return
+  }
+
+  window.setAlwaysOnTop(overview.settings.alwaysOnTop)
+
+  if (!isReadyToShow) {
+    return
+  }
+
+  if (overview.settings.petVisible) {
+    if (!window.isVisible()) {
+      window.showInactive()
+    }
+  } else if (window.isVisible()) {
+    window.hide()
+  }
+}
+
+function sendSettingsToWebContents(
+  webContents: WebContents,
+  overview: AppSettingsOverview
+): void {
+  if (!webContents.isDestroyed()) {
+    webContents.send(IPC_CHANNELS.appSettingsChanged, overview)
+  }
 }
 
 function logProviderReply(diagnostics: ChatProviderReplyDiagnostics): void {

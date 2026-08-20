@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { LoadedCharacter } from '../../shared/character'
+import type { AppSettingsOverview } from '../../shared/app-settings'
 import {
   isCompanionAutonomousAction,
   isCompanionInteraction
@@ -25,6 +26,7 @@ export function App(): React.JSX.Element {
   const [character, setCharacter] = useState<LoadedCharacter>()
   const [loadError, setLoadError] = useState<string>()
   const [movementState, setMovementState] = useState<PetMovementSnapshot>()
+  const [settings, setSettings] = useState<AppSettingsOverview>()
   const actionState = usePetActionState(petActionController)
   const behaviorState = useAutonomousBehaviorState(autonomousBehaviorController)
   const interactionState = usePetInteractionState(petInteractionController)
@@ -127,14 +129,48 @@ export function App(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
+    let isActive = true
+    const applySettings = (overview: AppSettingsOverview): void => {
+      if (isActive) {
+        setSettings(overview)
+      }
+    }
+    const stopListening = window.desktopApi.onAppSettingsChange(applySettings)
+
+    void window.desktopApi
+      .getAppSettings()
+      .then(applySettings)
+      .catch(() => undefined)
+
+    return () => {
+      isActive = false
+      stopListening()
+    }
+  }, [])
+
+  useEffect(() => {
     if (!character) {
       return
     }
 
-    autonomousBehaviorController.startAutonomousBehavior()
+    const shouldRun =
+      settings?.settings.autonomousBehaviorEnabled === true &&
+      settings.settings.petVisible
 
+    if (shouldRun) {
+      if (autonomousBehaviorController.getSnapshot().status === 'stopped') {
+        autonomousBehaviorController.startAutonomousBehavior()
+      } else {
+        autonomousBehaviorController.resumeAutonomousBehavior()
+      }
+    } else {
+      autonomousBehaviorController.pauseAutonomousBehavior()
+    }
+  }, [character, settings?.settings.autonomousBehaviorEnabled, settings?.settings.petVisible])
+
+  useEffect(() => {
     return () => autonomousBehaviorController.stopAutonomousBehavior()
-  }, [character])
+  }, [])
 
   return (
     <main className="desktop-pet-shell">
@@ -192,6 +228,16 @@ export function App(): React.JSX.Element {
               onClick={() => window.desktopApi.openCharacterManager()}
             >
               Characters
+            </button>
+            <button
+              className="pet-utility-button"
+              type="button"
+              aria-label="Open application settings"
+              title="Settings"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => window.desktopApi.openAppSettings()}
+            >
+              Settings
             </button>
           </div>
         ) : null}

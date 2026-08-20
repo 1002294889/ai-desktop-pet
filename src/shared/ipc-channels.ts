@@ -1,5 +1,10 @@
 export const IPC_CHANNELS = {
   getAppVersion: 'app:get-version',
+  openAppSettings: 'settings:open',
+  getAppSettings: 'settings:get-overview',
+  updateAppSetting: 'settings:update',
+  appSettingsChanged: 'settings:changed',
+  openSettingsDestination: 'settings:open-destination',
   getActiveCharacter: 'characters:get-active',
   activeCharacterChanged: 'characters:active-changed',
   openCharacterManager: 'characters:open-manager',

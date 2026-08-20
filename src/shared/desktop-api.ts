@@ -1,5 +1,10 @@
 import type { LoadedCharacter } from './character'
 import type {
+  AppSettingsOverview,
+  SettingsDestination,
+  UpdateAppSettingInput
+} from './app-settings'
+import type {
   CharacterManagerOverview,
   CharacterOperationResult
 } from './character-management'
@@ -26,6 +31,15 @@ import type {
 
 export interface DesktopApi {
   getAppVersion: () => Promise<string>
+  openAppSettings: () => void
+  getAppSettings: () => Promise<AppSettingsOverview>
+  updateAppSetting: (
+    input: UpdateAppSettingInput
+  ) => Promise<AppSettingsOverview>
+  onAppSettingsChange: (
+    listener: (overview: AppSettingsOverview) => void
+  ) => () => void
+  openSettingsDestination: (destination: SettingsDestination) => void
   getActiveCharacter: () => Promise<LoadedCharacter>
   onActiveCharacterChange: (
     listener: (character: LoadedCharacter) => void
