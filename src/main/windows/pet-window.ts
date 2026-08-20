@@ -8,7 +8,8 @@ import { AIProviderError } from '../ai/ai-provider-error'
 import {
   ChatController,
   type ChatPersistenceErrorDiagnostics,
-  type ChatProviderReplyDiagnostics
+  type ChatProviderReplyDiagnostics,
+  type ReplyPlanCancellationDiagnostics
 } from '../chat/ChatController'
 import { createCompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
 import { registerChatHandlers } from '../ipc/chat'
@@ -92,6 +93,9 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     companionState,
     onProviderError: options.reportProviderErrors ? logProviderError : undefined,
     onProviderReply: options.reportProviderErrors ? logProviderReply : undefined,
+    onReplyPlanCancelled: options.reportProviderErrors
+      ? logReplyPlanCancellation
+      : undefined,
     onMemoryDiagnostics: options.reportProviderErrors ? logMemoryDiagnostics : undefined,
     onPersistenceError: logPersistenceError
   })
@@ -155,6 +159,12 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
 
 function logProviderReply(diagnostics: ChatProviderReplyDiagnostics): void {
   console.info('[AIProvider] Reply received', diagnostics)
+}
+
+function logReplyPlanCancellation(
+  diagnostics: ReplyPlanCancellationDiagnostics
+): void {
+  console.info('[ChatPacing] Cancelled unspoken reply segments', diagnostics)
 }
 
 function logMemoryDiagnostics(diagnostics: LongTermMemoryDiagnostics): void {

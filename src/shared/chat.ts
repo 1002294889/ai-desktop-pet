@@ -30,6 +30,7 @@ export interface ChatState {
   messages: ChatMessage[]
   speechText: string | null
   isProcessing: boolean
+  isWaitingForSegment: boolean
   characterName: string
   provider: ChatProviderInfo
 }
@@ -55,6 +56,7 @@ export function isChatState(value: unknown): value is ChatState {
     state.messages.every(isChatMessage) &&
     (typeof state.speechText === 'string' || state.speechText === null) &&
     typeof state.isProcessing === 'boolean' &&
+    typeof state.isWaitingForSegment === 'boolean' &&
     typeof state.characterName === 'string' &&
     isChatProviderInfo(state.provider)
   )

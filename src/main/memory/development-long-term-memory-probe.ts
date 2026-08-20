@@ -249,6 +249,17 @@ async function sendAndReadReply(controller: ChatController, message: string): Pr
 
   assert(result.accepted, `chat rejected a probe message: ${result.reason ?? 'unknown'}`)
 
+  const deadline = Date.now() + 5_000
+
+  while (controller.getSnapshot().isProcessing && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+
+  assert(
+    !controller.getSnapshot().isProcessing,
+    'segmented assistant response did not settle before the probe deadline'
+  )
+
   const assistantMessages = controller
     .getSnapshot()
     .messages.filter((entry): entry is ChatMessage & { role: 'assistant' } => entry.role === 'assistant')
@@ -258,7 +269,10 @@ async function sendAndReadReply(controller: ChatController, message: string): Pr
     'chat did not produce an assistant response'
   )
 
-  return assistantMessages.at(-1)?.content ?? ''
+  return assistantMessages
+    .slice(previousAssistantCount)
+    .map(({ content }) => content)
+    .join(' ')
 }
 
 function countHotpotPreferences(memoryManager: MemoryManager): number {

@@ -14,6 +14,10 @@ import {
   getCompanionProbeMode,
   runCompanionProbe
 } from './companion/development-companion-probe'
+import {
+  getConversationPacingProbeMode,
+  runConversationPacingProbe
+} from './chat/development-conversation-pacing-probe'
 import { registerAppInfoHandlers } from './ipc/app-info'
 import { registerCharacterHandlers } from './ipc/characters'
 import { MemoryManager } from './memory/MemoryManager'
@@ -76,7 +80,23 @@ async function startApplication(): Promise<void> {
     runCompanionProbe(companionProbeMode, memoryManager)
   }
 
-  if (!app.isPackaged && process.env.DESKTOP_PET_PROBE_ONLY === '1') {
+  const conversationPacingProbeMode = app.isPackaged
+    ? undefined
+    : getConversationPacingProbeMode()
+  const longTermMemoryProbeMode = app.isPackaged
+    ? undefined
+    : getLongTermMemoryProbeMode()
+
+  if (conversationPacingProbeMode === 'exercise') {
+    await runConversationPacingProbe(conversationPacingProbeMode, memoryManager)
+  }
+
+  if (
+    !app.isPackaged &&
+    process.env.DESKTOP_PET_PROBE_ONLY === '1' &&
+    conversationPacingProbeMode !== 'deepseek' &&
+    longTermMemoryProbeMode === undefined
+  ) {
     app.quit()
     return
   }
@@ -110,10 +130,20 @@ async function startApplication(): Promise<void> {
     )
   }
 
+  if (conversationPacingProbeMode === 'deepseek') {
+    await runConversationPacingProbe(
+      conversationPacingProbeMode,
+      memoryManager,
+      aiProvider.provider
+    )
+
+    if (process.env.DESKTOP_PET_PROBE_ONLY === '1') {
+      app.quit()
+      return
+    }
+  }
+
   const characterName = characterManager.getActiveCharacter().manifest.name
-  const longTermMemoryProbeMode = app.isPackaged
-    ? undefined
-    : getLongTermMemoryProbeMode()
 
   if (longTermMemoryProbeMode) {
     await runLongTermMemoryProbe(longTermMemoryProbeMode, {
@@ -121,6 +151,11 @@ async function startApplication(): Promise<void> {
       providerSelection: aiProvider,
       memoryManager: requireMemoryManager()
     })
+
+    if (process.env.DESKTOP_PET_PROBE_ONLY === '1') {
+      app.quit()
+      return
+    }
   }
 
   const createMainWindow = (): void => {

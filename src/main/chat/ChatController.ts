@@ -13,13 +13,24 @@ import type {
 } from '../../shared/chat'
 import type { AIProvider } from '../ai/ai-provider'
 import { getSafeAIErrorMessage } from '../ai/ai-provider-error'
+import {
+  createSingleSegmentReplyPlan,
+  normalizeReplyPlanForTurn
+} from '../ai/companion-reply-plan'
 import { buildAIConversationContext } from '../ai/conversation-context'
+import { isDirectPetActionCommand } from '../ai/reply-plan-instruction'
 import type { CompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
 import type {
   LongTermMemoryCoordinator,
   LongTermMemoryDiagnostics
 } from '../memory/LongTermMemoryCoordinator'
 import type { MemoryManager } from '../memory/MemoryManager'
+import {
+  getLocalDesktopTimeContext,
+  type LocalDesktopTimeContext
+} from './local-time-context'
+import { ReplyPlanScheduler } from './ReplyPlanScheduler'
+import { createPacedReplyPlan } from './reply-pacing'
 
 type ChatListener = (state: ChatState) => void
 type PetActionsListener = (actions: readonly AIPetAction[]) => void
@@ -28,8 +39,17 @@ export interface ChatProviderReplyDiagnostics {
   provider: AIProvider['id']
   textReturned: boolean
   textLength: number
+  segmentCount: number
+  segmentDelaysMs: readonly number[]
+  usedStructuredReplyPlan: boolean
   validatedActions: readonly AIPetAction[]
   rejectedActionRequests: readonly string[]
+}
+
+export interface ReplyPlanCancellationDiagnostics {
+  reason: 'new-user-turn' | 'chat-closed' | 'disposed'
+  turnId: number
+  cancelledSegments: number
 }
 
 export interface ChatPersistenceErrorDiagnostics {
@@ -42,10 +62,12 @@ interface ChatControllerOptions {
   provider: AIProvider
   providerInfo: ChatProviderInfo
   memoryManager: MemoryManager
-  longTermMemory: LongTermMemoryCoordinator
+  longTermMemory: Pick<LongTermMemoryCoordinator, 'prepare'>
   companionState: CompanionStateCoordinator
+  getLocalTimeContext?: () => LocalDesktopTimeContext
   onProviderError?: (error: unknown) => void
   onProviderReply?: (diagnostics: ChatProviderReplyDiagnostics) => void
+  onReplyPlanCancelled?: (diagnostics: ReplyPlanCancellationDiagnostics) => void
   onMemoryDiagnostics?: (diagnostics: LongTermMemoryDiagnostics) => void
   onPersistenceError?: (diagnostics: ChatPersistenceErrorDiagnostics) => void
 }
@@ -59,6 +81,7 @@ export class ChatController {
   private readonly petActionsListeners = new Set<PetActionsListener>()
   private speechTimer: NodeJS.Timeout | undefined
   private activeRequest: AbortController | undefined
+  private readonly replyPlanScheduler = new ReplyPlanScheduler()
   private replyGeneration = 0
   private state: ChatState
 
@@ -69,6 +92,7 @@ export class ChatController {
       messages: [],
       speechText: null,
       isProcessing: false,
+      isWaitingForSegment: false,
       characterName: options.characterName,
       provider: options.providerInfo
     }
@@ -111,8 +135,14 @@ export class ChatController {
   closeChat(): void {
     this.replyGeneration += 1
     this.cancelActiveRequest()
+    this.cancelPendingReply('chat-closed', false)
     this.clearSpeechTimer()
-    this.setState({ mode: 'hidden', speechText: null, isProcessing: false })
+    this.setState({
+      mode: 'hidden',
+      speechText: null,
+      isProcessing: false,
+      isWaitingForSegment: false
+    })
   }
 
   showSpeechBubble(
@@ -161,7 +191,11 @@ export class ChatController {
     }
 
     if (this.state.isProcessing) {
-      return { accepted: false, reason: 'processing' }
+      if (this.state.isWaitingForSegment && this.replyPlanScheduler.hasPendingTurn()) {
+        this.cancelPendingReply('new-user-turn')
+      } else {
+        return { accepted: false, reason: 'processing' }
+      }
     }
 
     const generation = ++this.replyGeneration
@@ -170,11 +204,13 @@ export class ChatController {
     const messages = this.limitMessages([...this.state.messages, userMessage])
 
     this.activeRequest = requestController
-    this.setState({ messages, isProcessing: true })
+    this.setState({ messages, isProcessing: true, isWaitingForSegment: false })
     this.persistConversationMessage(userMessage)
     this.notifyPetActions(['talk'])
 
     try {
+      const localTime =
+        this.options.getLocalTimeContext?.() ?? getLocalDesktopTimeContext()
       const preparedMemory = await this.options.longTermMemory.prepare({
         currentMessage: normalizedContent,
         recentMessages: messages.slice(0, -1),
@@ -194,11 +230,16 @@ export class ChatController {
 
       const reply = await this.options.provider.generateReply({
         characterName: this.state.characterName,
+        responseFormat: 'companion-reply-plan',
+        petActionToolChoice: isDirectPetActionCommand(normalizedContent)
+          ? 'required'
+          : 'auto',
         messages: buildAIConversationContext(
           this.state.characterName,
           messages,
           preparedMemory.context,
-          companionState
+          companionState,
+          localTime
         ),
         signal: requestController.signal
       })
@@ -207,35 +248,67 @@ export class ChatController {
         return { accepted: true }
       }
 
-      const assistantMessage = this.createMessage('assistant', reply.text)
       const actionValidation = validateAIPetActionSequence(reply.actions ?? [])
       const rejectedActionRequests = [
         ...(reply.rejectedActionRequests ?? []),
         ...actionValidation.rejected
       ]
 
-      this.options.companionState.handleAIResponse(actionValidation.actions)
-
-      this.setState({
-        messages: this.limitMessages([...this.state.messages, assistantMessage]),
-        isProcessing: false
+      const replyPlan = createPacedReplyPlan({
+        plan: normalizeReplyPlanForTurn(
+          reply.replyPlan ?? createSingleSegmentReplyPlan(reply.text),
+          normalizedContent
+        ),
+        actions: actionValidation.actions,
+        emotion: companionState.emotion
       })
-      this.persistConversationMessage(assistantMessage)
+
       this.options.onProviderReply?.({
         provider: this.options.provider.id,
         textReturned: reply.text.trim().length > 0,
         textLength: reply.text.length,
+        segmentCount: replyPlan.segments.length,
+        segmentDelaysMs: replyPlan.segments.map(({ delayBeforeMs }) => delayBeforeMs),
+        usedStructuredReplyPlan: reply.replyPlan !== undefined,
         validatedActions: actionValidation.actions,
         rejectedActionRequests
       })
-      this.notifyPetActions(actionValidation.actions)
+
+      const firstSegment = replyPlan.segments[0]
+
+      if (!firstSegment) {
+        throw new Error('Reply plan did not contain a visible segment')
+      }
+
+      this.speakSegment(firstSegment)
+
+      const remainingSegments = replyPlan.segments.slice(1)
+
+      if (remainingSegments.length === 0) {
+        this.setState({ isProcessing: false, isWaitingForSegment: false })
+      } else {
+        this.setState({ isProcessing: true, isWaitingForSegment: true })
+        this.replyPlanScheduler.start(generation, remainingSegments, {
+          onSegment: (segment) => {
+            if (generation === this.replyGeneration && this.state.mode === 'chat') {
+              this.speakSegment(segment)
+            }
+          },
+          onComplete: () => {
+            if (generation === this.replyGeneration && this.state.mode === 'chat') {
+              this.setState({ isProcessing: false, isWaitingForSegment: false })
+            }
+          }
+        })
+      }
     } catch (error: unknown) {
       if (generation === this.replyGeneration && this.state.mode === 'chat') {
         const errorMessage = this.createMessage('assistant', getSafeAIErrorMessage(error))
 
         this.setState({
           messages: this.limitMessages([...this.state.messages, errorMessage]),
-          isProcessing: false
+          isProcessing: false,
+          isWaitingForSegment: false
         })
         this.persistConversationMessage(errorMessage)
         this.options.onProviderError?.(error)
@@ -252,6 +325,8 @@ export class ChatController {
   dispose(): void {
     this.replyGeneration += 1
     this.cancelActiveRequest()
+    this.cancelPendingReply('disposed', false)
+    this.replyPlanScheduler.dispose()
     this.clearSpeechTimer()
     this.listeners.clear()
     this.petActionsListeners.clear()
@@ -282,6 +357,40 @@ export class ChatController {
         operation: 'persist-conversation-message',
         error
       })
+    }
+  }
+
+  private speakSegment(segment: {
+    text: string
+    actions: readonly AIPetAction[]
+  }): void {
+    const assistantMessage = this.createMessage('assistant', segment.text)
+
+    this.setState({
+      messages: this.limitMessages([...this.state.messages, assistantMessage])
+    })
+    this.persistConversationMessage(assistantMessage)
+
+    if (segment.actions.length > 0) {
+      this.options.companionState.handleAIResponse(segment.actions)
+      this.notifyPetActions(segment.actions)
+    }
+  }
+
+  private cancelPendingReply(
+    reason: ReplyPlanCancellationDiagnostics['reason'],
+    updateState = true
+  ): void {
+    const cancelled = this.replyPlanScheduler.cancel()
+
+    if (!cancelled) {
+      return
+    }
+
+    this.options.onReplyPlanCancelled?.({ reason, ...cancelled })
+
+    if (updateState) {
+      this.setState({ isProcessing: false, isWaitingForSegment: false })
     }
   }
 

@@ -1,4 +1,9 @@
+import type { AIPetAction } from '../../shared/ai-pet-action'
 import type { AIChatRequest, AIChatResponse, AIProvider } from '../ai/ai-provider'
+import {
+  createUnpacedReplyPlan,
+  formatCompanionReplyPlanText
+} from '../ai/companion-reply-plan'
 
 const FAKE_REPLY_DELAY_MS = 480
 
@@ -19,13 +24,20 @@ export class LocalReplyProvider implements AIProvider {
 
     const normalizedMessage = message.toLowerCase()
     const earlierUserContext = userMessages.slice(0, -1).join(' ').toLowerCase()
+    const timeOfDay = readTimeOfDay(request)
 
     if (containsAny(normalizedMessage, ['2+2等于多少', '2 + 2等于多少', '2+2是多少'])) {
-      return { text: '4。' }
+      return createPlannedResponse(['4。'])
     }
 
     if (containsAny(normalizedMessage, ['跳一下', '跳一个', '跳起来'])) {
-      return { text: '行，看好了。', actions: ['jump'] }
+      return createPlannedResponse(['行，看好了。'], ['jump'])
+    }
+
+    if (normalizedMessage.includes('我还在工作')) {
+      return createPlannedResponse([
+        timeOfDay === 'late_night' ? '这个点还在忙？' : '还在忙啊？'
+      ])
     }
 
     if (
@@ -33,13 +45,18 @@ export class LocalReplyProvider implements AIProvider {
       containsAny(earlierUserContext, ['明天有比赛', '明天比赛', '有点紧张'])
     ) {
       return {
-        text: '等等，你刚才还在紧张，结果真拿奖了？最后第几名？',
-        actions: ['happy']
+        ...createPlannedResponse(
+          ['等等，你刚才还在紧张，结果真拿奖了？', '最后第几名？'],
+          ['happy']
+        )
       }
     }
 
     if (containsAny(normalizedMessage, ['比赛获奖', '比赛拿奖', '我拿奖了', '我获奖了'])) {
-      return { text: '还真拿下了，可以啊你 😂 最后第几名？', actions: ['happy'] }
+      return createPlannedResponse(
+        ['真的假的？你还真拿下了 😂', '最后第几名？'],
+        ['happy']
+      )
     }
 
     if (containsAny(normalizedMessage, ['上班累死了', '工作累死了', '今天好累'])) {
@@ -47,7 +64,10 @@ export class LocalReplyProvider implements AIProvider {
     }
 
     if (containsAny(normalizedMessage, ['认识了一个挺有意思的人', '认识了个有意思的人'])) {
-      return { text: '这人怎么个有意思法？', actions: ['talk'] }
+      return createPlannedResponse(
+        ['听着就有故事。', '这人有意思在哪儿？'],
+        ['talk']
+      )
     }
 
     if (containsAny(normalizedMessage, ['老板今天居然夸我了', '老板夸我了'])) {
@@ -130,6 +150,33 @@ export class LocalReplyProvider implements AIProvider {
 
     return fallbackReplies[replyIndex] ?? fallbackReplies[0]
   }
+}
+
+function createPlannedResponse(
+  segments: readonly string[],
+  actions: readonly AIPetAction[] = []
+): AIChatResponse {
+  const replyPlan = createUnpacedReplyPlan(segments)
+
+  return {
+    text: formatCompanionReplyPlanText(replyPlan),
+    replyPlan,
+    ...(actions.length > 0 ? { actions } : {})
+  }
+}
+
+function readTimeOfDay(request: AIChatRequest): string | undefined {
+  for (const message of request.messages) {
+    if (message.role !== 'system' || !message.content.includes('## Local desktop time')) {
+      continue
+    }
+
+    const match = message.content.match(/"timeOfDay":"([a-z_]+)"/)
+
+    return match?.[1]
+  }
+
+  return undefined
 }
 
 function containsAny(message: string, phrases: readonly string[]): boolean {

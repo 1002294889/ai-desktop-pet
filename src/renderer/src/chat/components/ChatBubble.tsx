@@ -12,7 +12,9 @@ export function ChatBubble({ state }: ChatBubbleProps): React.JSX.Element {
   const [sendError, setSendError] = useState<string>()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const normalizedMessage = message.trim()
-  const canSend = normalizedMessage.length > 0 && !state.isProcessing
+  const canSend =
+    normalizedMessage.length > 0 &&
+    (!state.isProcessing || state.isWaitingForSegment)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: 'nearest' })
@@ -26,12 +28,16 @@ export function ChatBubble({ state }: ChatBubbleProps): React.JSX.Element {
     }
 
     setSendError(undefined)
-    const result = await window.desktopApi.sendChatMessage(message)
+    const submittedMessage = message
+
+    setMessage('')
+    const result = await window.desktopApi.sendChatMessage(submittedMessage)
 
     if (result.accepted) {
-      setMessage('')
       return
     }
+
+    setMessage((current) => current || submittedMessage)
 
     setSendError(
       result.reason === 'processing'
@@ -88,7 +94,8 @@ export function ChatBubble({ state }: ChatBubbleProps): React.JSX.Element {
           ))}
           {state.isProcessing ? (
             <p className="chat-typing" aria-label={`${state.characterName} is replying`}>
-              {state.characterName} is thinking…
+              {state.characterName}{' '}
+              {state.isWaitingForSegment ? 'is typing…' : 'is thinking…'}
             </p>
           ) : null}
           <div ref={messagesEndRef} />
