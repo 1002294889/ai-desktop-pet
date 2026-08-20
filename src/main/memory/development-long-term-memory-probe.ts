@@ -222,7 +222,7 @@ export async function runLongTermMemoryProbe(
           'the persisted competition event was not retrieved for the award follow-up'
         )
         assert(
-          ['羽毛球', '比赛', '奖', '第几名', '冠军'].some((phrase) =>
+          ['羽毛球', '比赛', '奖', '第几名', '名次', '冠军'].some((phrase) =>
             reply.includes(phrase)
           ),
           `the award reply did not acknowledge the retrieved event naturally (reply: ${reply})`

@@ -12,7 +12,8 @@ AI Desktop Pet is a private, character-pack-based desktop companion built with E
 - DeepSeek conversation provider with an offline `LocalReplyProvider` fallback
 - Natural segmented replies, interruption cancellation, and local-time awareness
 - SQLite conversation history, structured long-term memory, emotion, and relationship state
-- Memory, Character, and Settings windows with native menu-bar/system-tray controls
+- Polished Chat, Memory & Privacy, Characters, and Settings windows with consistent production styling
+- Hover quick actions plus native pet context-menu and menu-bar/system-tray controls
 - Launch-at-login support in packaged macOS and Windows builds
 
 ## Requirements

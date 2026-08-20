@@ -10,6 +10,8 @@
 - [x] Settings and memory restart persistence
 - [x] Character import/switch/restart regression
 - [x] Tray actions and clean quit
+- [x] Production pet context menu and hover quick actions
+- [x] Polished Chat, Memory & Privacy, Characters, and Settings windows
 - [x] Idle CPU/memory and timer/listener observation
 
 ## Security and privacy

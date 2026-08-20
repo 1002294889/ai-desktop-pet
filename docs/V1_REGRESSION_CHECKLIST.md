@@ -21,13 +21,15 @@ Status legend: **PASS** was exercised in this environment, **INSPECTED** was ver
 - [x] **PASS/INSPECTED:** Bounds clamping prevents permanent inaccessibility
 - [x] **INSPECTED:** Display removal/metrics listeners retain multi-display safety; only one physical display was available
 - [x] **PASS:** Tray Hide keeps the process alive; Show restores the pet
-- [x] **PASS:** Only one autonomous scheduler is active after pause/resume (`Timer: 0` paused, `Timer: 1` resumed)
+- [x] **PASS/INSPECTED:** Pause/resume retains one autonomous scheduler without production debug counters
 - [x] **PASS:** Idle, walk-left, walk-right, sit, sleep, and wake were observed
 - [x] **PASS:** Reaching a display edge reverses walking direction
 - [x] **PASS/INSPECTED:** Chat and manual interactions do not fight autonomous movement
 
 ## Actions, animation, and interaction
 
+- [x] **PASS:** Hover quick actions expose Chat, Wave, Sit, and Sleep/Wake without obscuring the character
+- [x] **PASS:** Native right-click menu exposes Chat, character, memory, settings, movement, and quit controls
 - [x] **PASS:** Idle, walk-left, walk-right, sit, sleep, wake, happy, angry, jump, wave, talk, and dragged render
 - [x] **PASS:** Priorities reject lower-priority interruption where required
 - [x] **PASS:** Completed actions return to idle/autonomous behavior
@@ -83,6 +85,7 @@ Status legend: **PASS** was exercised in this environment, **INSPECTED** was ver
 
 ## Settings, tray, startup, and shutdown
 
+- [x] **PASS/INSPECTED:** Chat, Memory & Privacy, Characters, and Settings use consistent production chrome, spacing, status treatments, and empty states
 - [x] **PASS:** Settings, Chat, Characters, and Memory are singleton windows
 - [x] **PASS:** Settings persist across a full restart
 - [x] **PASS:** Settings and Memory share one long-term-memory state
@@ -117,6 +120,9 @@ DESKTOP_PET_MEMORY_TEST_MODE=use DESKTOP_PET_CONVERSATION_PACING_PROBE_MODE=exer
 DESKTOP_PET_MEMORY_TEST_MODE=use DESKTOP_PET_CHARACTER_MANAGEMENT_PROBE_MODE=exercise DESKTOP_PET_PROBE_ONLY=1 DEEPSEEK_API_KEY= npm run dev
 DESKTOP_PET_MEMORY_TEST_MODE=use DESKTOP_PET_COMPANION_PROBE_MODE=exercise DESKTOP_PET_PROBE_ONLY=1 DEEPSEEK_API_KEY= npm run dev
 DESKTOP_PET_MEMORY_TEST_MODE=use DESKTOP_PET_SETTINGS_PROBE_MODE=exercise DESKTOP_PET_PROBE_ONLY=1 DEEPSEEK_API_KEY= npm run dev
+
+# Run only when a local DeepSeek development key is intentionally configured.
+DESKTOP_PET_MEMORY_TEST_MODE=use DESKTOP_PET_CONVERSATION_PACING_PROBE_MODE=deepseek DESKTOP_PET_PROBE_ONLY=1 npm run dev
 ```
 
 Multi-launch persistence probes must run in their documented seed/verify order. Do not run the DeepSeek probe unless a local development key is intentionally configured.

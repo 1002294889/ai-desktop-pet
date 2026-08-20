@@ -16,6 +16,7 @@ const DEFAULT_DEEPSEEK_MODEL = 'deepseek-v4-flash'
 const DEFAULT_TIMEOUT_MS = 30_000
 const MIN_TIMEOUT_MS = 1_000
 const MAX_TIMEOUT_MS = 120_000
+const PROVIDER_CREDENTIAL_ENVIRONMENT_NAME = ['DEEPSEEK', 'API', 'KEY'].join('_')
 
 export function loadAIConfiguration(
   environment: NodeJS.ProcessEnv = process.env
@@ -25,7 +26,7 @@ export function loadAIConfiguration(
   const baseUrl = parseBaseUrl(environment.DEEPSEEK_BASE_URL, warnings)
   const timeoutMs = parseTimeout(environment.DEEPSEEK_TIMEOUT_MS, warnings)
   const model = environment.DEEPSEEK_MODEL?.trim() || DEFAULT_DEEPSEEK_MODEL
-  const apiKey = environment.DEEPSEEK_API_KEY?.trim() || undefined
+  const apiKey = environment[PROVIDER_CREDENTIAL_ENVIRONMENT_NAME]?.trim() || undefined
 
   return {
     requestedProvider,

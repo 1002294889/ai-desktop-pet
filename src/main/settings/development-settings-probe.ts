@@ -132,6 +132,7 @@ async function exerciseSettings(options: SettingsProbeOptions): Promise<void> {
     )
 
     await options.trayController.activateMenuItemForDevelopment('pet-visibility')
+    await waitForWindowVisibility(options.petRuntime.getPetWindow(), true)
     assert(options.petRuntime.getPetWindow().isVisible(), 'pet did not show again')
 
     await options.trayController.activateMenuItemForDevelopment(
@@ -278,6 +279,19 @@ async function waitForRenderer(window: BrowserWindow): Promise<void> {
   await new Promise<void>((resolvePromise) => {
     window.webContents.once('did-finish-load', () => resolvePromise())
   })
+}
+
+async function waitForWindowVisibility(
+  window: BrowserWindow,
+  expectedVisible: boolean
+): Promise<void> {
+  const deadline = Date.now() + 2_000
+
+  while (window.isVisible() !== expectedVisible && Date.now() < deadline) {
+    await new Promise<void>((resolvePromise) => {
+      setTimeout(resolvePromise, 25)
+    })
+  }
 }
 
 function countWindows(title: string): number {
