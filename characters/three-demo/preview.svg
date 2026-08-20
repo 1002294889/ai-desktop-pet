@@ -1,23 +1,46 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Original 3D Demo Pet preview">
   <defs>
-    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f7f3ff"/>
-      <stop offset="1" stop-color="#e8ddff"/>
+    <linearGradient id="background" x1="24" y1="18" x2="216" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#faf7ff"/>
+      <stop offset="1" stop-color="#e9e2fa"/>
     </linearGradient>
-    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ad99ff"/>
-      <stop offset="1" stop-color="#7456cf"/>
+    <linearGradient id="fur" x1="74" y1="54" x2="171" y2="195" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b8a7ee"/>
+      <stop offset=".58" stop-color="#9179df"/>
+      <stop offset="1" stop-color="#6c56ba"/>
+    </linearGradient>
+    <linearGradient id="face" x1="88" y1="86" x2="152" y2="142" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c9bbf4"/>
+      <stop offset="1" stop-color="#a38be5"/>
     </linearGradient>
   </defs>
-  <rect width="240" height="240" rx="34" fill="url(#background)"/>
-  <ellipse cx="120" cy="204" rx="58" ry="11" fill="#4d357f" opacity=".14"/>
-  <path d="M71 77 83 37l33 37M169 77l-12-40-33 37" fill="url(#body)" stroke="#4a2d91" stroke-width="5" stroke-linejoin="round"/>
-  <rect x="64" y="70" width="112" height="118" rx="54" fill="url(#body)" stroke="#4a2d91" stroke-width="6"/>
-  <ellipse cx="96" cy="119" rx="7" ry="9" fill="#38216e"/>
-  <ellipse cx="144" cy="119" rx="7" ry="9" fill="#38216e"/>
-  <path d="M99 146q21 20 43-1" fill="none" stroke="#38216e" stroke-width="7" stroke-linecap="round"/>
-  <ellipse cx="157" cy="139" rx="10" ry="6" fill="#f5a3ca" opacity=".86"/>
-  <path d="M67 115q-27 11-23 43M173 115q27 11 23 43" fill="none" stroke="#8062df" stroke-width="14" stroke-linecap="round"/>
-  <circle cx="120" cy="30" r="17" fill="#fff" opacity=".9"/>
-  <text x="120" y="36" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" font-weight="800" fill="#5b3caf">3D</text>
+  <rect width="240" height="240" rx="36" fill="url(#background)"/>
+  <ellipse cx="120" cy="208" rx="55" ry="10" fill="#302554" opacity=".08"/>
+  <ellipse cx="120" cy="207" rx="39" ry="7" fill="#302554" opacity=".11"/>
+
+  <rect x="75" y="24" width="26" height="69" rx="13" transform="rotate(-9 75 24)" fill="url(#fur)"/>
+  <rect x="139" y="20" width="26" height="69" rx="13" transform="rotate(9 139 20)" fill="url(#fur)"/>
+  <rect x="84" y="34" width="9" height="45" rx="5" transform="rotate(-9 84 34)" fill="#d8acd4" opacity=".88"/>
+  <rect x="148" y="31" width="9" height="45" rx="5" transform="rotate(9 148 31)" fill="#d8acd4" opacity=".88"/>
+
+  <path d="M72 151c0-30 21-52 48-52s48 22 48 52v28c0 22-17 37-48 37s-48-15-48-37z" fill="url(#fur)"/>
+  <ellipse cx="120" cy="168" rx="28" ry="34" fill="#eee8ff" opacity=".84"/>
+  <path d="M74 147c-13 10-17 26-13 39" fill="none" stroke="#9179df" stroke-width="13" stroke-linecap="round"/>
+  <path d="M166 147c13 10 17 26 13 39" fill="none" stroke="#9179df" stroke-width="13" stroke-linecap="round"/>
+  <circle cx="58" cy="188" r="7" fill="#b5a2ed"/>
+  <circle cx="182" cy="188" r="7" fill="#b5a2ed"/>
+  <ellipse cx="97" cy="207" rx="16" ry="10" fill="#6652b4"/>
+  <ellipse cx="143" cy="207" rx="16" ry="10" fill="#6652b4"/>
+
+  <ellipse cx="120" cy="105" rx="56" ry="49" fill="url(#face)"/>
+  <ellipse cx="110" cy="119" rx="16" ry="11" fill="#eee8ff"/>
+  <ellipse cx="130" cy="119" rx="16" ry="11" fill="#eee8ff"/>
+  <ellipse cx="99" cy="101" rx="7" ry="9" fill="#302554"/>
+  <ellipse cx="141" cy="101" rx="7" ry="9" fill="#302554"/>
+  <circle cx="97" cy="98" r="2.2" fill="#fffafc"/>
+  <circle cx="139" cy="98" r="2.2" fill="#fffafc"/>
+  <ellipse cx="85" cy="116" rx="9" ry="5" fill="#eba4c5" opacity=".82"/>
+  <ellipse cx="155" cy="116" rx="9" ry="5" fill="#eba4c5" opacity=".82"/>
+  <ellipse cx="120" cy="116" rx="4.5" ry="3.4" fill="#302554"/>
+  <path d="M106 126q14 13 28 0" fill="none" stroke="#302554" stroke-width="4.5" stroke-linecap="round"/>
 </svg>
