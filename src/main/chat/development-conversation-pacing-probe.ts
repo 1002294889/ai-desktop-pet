@@ -10,6 +10,7 @@ import {
 } from '../ai/companion-reply-plan'
 import { DeepSeekProvider } from '../ai/DeepSeekProvider'
 import { parsePetActionToolCalls } from '../ai/deepseek-pet-action-tool'
+import { isDirectPetActionCommand } from '../ai/reply-plan-instruction'
 import { createCompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
 import type {
   LongTermMemoryDiagnostics,
@@ -308,6 +309,11 @@ async function verifyLocalFallbackSemanticActions(): Promise<void> {
   ] as const
 
   for (const [message, expectedAction] of cases) {
+    assert(
+      isDirectPetActionCommand(message),
+      `direct semantic action command was not classified: "${message}"`
+    )
+
     const response = await provider.generateReply({
       characterName: 'Fallback Test Pet',
       messages: [{ role: 'user', content: message }],

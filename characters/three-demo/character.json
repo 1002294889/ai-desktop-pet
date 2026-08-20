@@ -1,0 +1,30 @@
+{
+  "id": "three-demo",
+  "name": "3D Demo Pet",
+  "renderer": "3d",
+  "version": 1,
+  "defaultWidth": 250,
+  "defaultHeight": 270,
+  "scale": 1,
+  "preview": "preview.svg",
+  "3d": {
+    "source": "procedural",
+    "cameraPosition": [0, 0.25, 5.2],
+    "modelPosition": [0, -0.1, 0],
+    "modelRotation": [0, 0, 0]
+  },
+  "actions": {
+    "idle": { "type": "3d", "loop": true },
+    "walk_left": { "type": "3d", "loop": true },
+    "walk_right": { "type": "3d", "loop": true },
+    "sit": { "type": "3d", "loop": true },
+    "sleep": { "type": "3d", "loop": true },
+    "wake": { "type": "3d", "loop": false, "durationMs": 900 },
+    "happy": { "type": "3d", "loop": false, "durationMs": 1300 },
+    "angry": { "type": "3d", "loop": false, "durationMs": 1200 },
+    "jump": { "type": "3d", "loop": false, "durationMs": 950 },
+    "wave": { "type": "3d", "loop": false, "durationMs": 1450 },
+    "talk": { "type": "3d", "loop": false, "durationMs": 1150 },
+    "dragged": { "type": "3d", "loop": false, "durationMs": 900 }
+  }
+}

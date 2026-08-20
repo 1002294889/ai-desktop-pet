@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Original 3D Demo Pet preview">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f3ff"/>
+      <stop offset="1" stop-color="#e8ddff"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ad99ff"/>
+      <stop offset="1" stop-color="#7456cf"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="34" fill="url(#background)"/>
+  <ellipse cx="120" cy="204" rx="58" ry="11" fill="#4d357f" opacity=".14"/>
+  <path d="M71 77 83 37l33 37M169 77l-12-40-33 37" fill="url(#body)" stroke="#4a2d91" stroke-width="5" stroke-linejoin="round"/>
+  <rect x="64" y="70" width="112" height="118" rx="54" fill="url(#body)" stroke="#4a2d91" stroke-width="6"/>
+  <ellipse cx="96" cy="119" rx="7" ry="9" fill="#38216e"/>
+  <ellipse cx="144" cy="119" rx="7" ry="9" fill="#38216e"/>
+  <path d="M99 146q21 20 43-1" fill="none" stroke="#38216e" stroke-width="7" stroke-linecap="round"/>
+  <ellipse cx="157" cy="139" rx="10" ry="6" fill="#f5a3ca" opacity=".86"/>
+  <path d="M67 115q-27 11-23 43M173 115q27 11 23 43" fill="none" stroke="#8062df" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="120" cy="30" r="17" fill="#fff" opacity=".9"/>
+  <text x="120" y="36" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" font-weight="800" fill="#5b3caf">3D</text>
+</svg>

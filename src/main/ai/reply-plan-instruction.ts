@@ -55,7 +55,7 @@ export function isDirectPetActionCommand(message: string): boolean {
   const normalized = message.trim().normalize('NFKC').toLocaleLowerCase()
 
   return (
-    /^(?:请|麻烦)?(?:你)?(?:给我)?(?:开心一下|高兴一下|生气一下|跳一下|跳起来|挥手|招手|坐下|睡觉|醒来|说句话)(?:吧|啦|呀|啊)?[。.!！]*$/u.test(
+    /^(?:请|麻烦)?(?:你)?(?:给我)?(?:开心一下|高兴一下|生气一下|跳一下|跳起来|挥挥手|挥手|招手|坐下|睡觉|醒醒|醒来|说句话)(?:吧|啦|呀|啊)?[。.!！]*$/u.test(
       normalized.replace(/\s+/gu, '')
     ) ||
     /^(?:please\s+)?(?:be happy|get angry|jump|wave|sit down|go to sleep|wake up|say something)(?:\s+(?:please|now))?[.!]*$/u.test(

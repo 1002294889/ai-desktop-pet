@@ -155,6 +155,24 @@ async function exerciseCharacterManagement(
     })
   }, characterManager, 'invalid-pack')
 
+  await expectRejectedImport('unsafe 3D model path', async (directory) => {
+    await writeManifest(directory, {
+      id: 'unsafe-3d-path',
+      name: 'Unsafe 3D Path',
+      renderer: '3d',
+      version: 1,
+      defaultWidth: 220,
+      defaultHeight: 260,
+      scale: 1,
+      model: '../outside.glb',
+      actions: { idle: { type: '3d', loop: true } }
+    })
+  }, characterManager, 'invalid-pack')
+
+  await expectRejectedImport('remote GLTF dependency', async (directory) => {
+    await createUnsafeGltfPack(directory)
+  }, characterManager, 'invalid-pack')
+
   await expectRejectedImport('script-containing pack', async (directory) => {
     await createStaticPack(directory, 'scripted-pack', 'Scripted Test Pet')
     await writeFile(join(directory, 'behavior.js'), 'throw new Error("unsafe")\n', 'utf8')
@@ -199,15 +217,31 @@ async function exerciseCharacterManagement(
     'built-in default character could be removed'
   )
 
-  const future3dCharacter = await withTemporaryPack(async (directory) => {
-    await createFuture3dPack(directory)
+  const threeDCharacter = await withTemporaryPack(async (directory) => {
+    await createThreeDProbePack(directory)
     return characterManager.importCharacterPack(directory)
   })
 
   assert(
-    future3dCharacter.renderer === '3d' && !future3dCharacter.canActivate,
-    'future 3d manifest was not discoverable as an unavailable renderer'
+    threeDCharacter.renderer === '3d' && threeDCharacter.canActivate,
+    '3D manifest was not discoverable as an available renderer'
   )
+  const loadedThreeDCharacter = await characterManager.setActiveCharacter(
+    PROBE_3D_CHARACTER_ID
+  )
+
+  assert(
+    loadedThreeDCharacter.manifest['3d']?.source === 'procedural' &&
+      loadedThreeDCharacter.modelUrl === undefined,
+    'procedural 3D character did not load through the typed renderer configuration'
+  )
+
+  for (let switchIndex = 0; switchIndex < 2; switchIndex += 1) {
+    await characterManager.setActiveCharacter(initialOverview.defaultCharacterId)
+    await characterManager.setActiveCharacter(PROBE_3D_CHARACTER_ID)
+  }
+
+  await characterManager.setActiveCharacter(initialOverview.defaultCharacterId)
   await characterManager.removeCharacter(PROBE_3D_CHARACTER_ID)
 
   console.info('[CharacterManagementProbe] exercise passed.', {
@@ -223,7 +257,10 @@ async function exerciseCharacterManagement(
     activeRemovalSwitchedToDefault: true,
     builtInDefaultProtected: true,
     importedAssetsOutsideRepository: true,
-    future3dManifestDiscoverableButUnavailable: true
+    unsafe3dTraversalRejected: true,
+    remoteGltfDependencyRejected: true,
+    threeDRendererAvailable: true,
+    repeated2d3dSwitching: true
   })
 }
 
@@ -298,7 +335,7 @@ async function createStaticPack(
   )
 }
 
-async function createFuture3dPack(directory: string): Promise<void> {
+async function createThreeDProbePack(directory: string): Promise<void> {
   await mkdir(join(directory, 'assets'), { recursive: true })
   await writeManifest(directory, {
     id: PROBE_3D_CHARACTER_ID,
@@ -309,14 +346,43 @@ async function createFuture3dPack(directory: string): Promise<void> {
     defaultHeight: 260,
     scale: 1,
     preview: 'assets/preview.svg',
+    '3d': {
+      source: 'procedural',
+      cameraPosition: [0, 0.4, 4.5],
+      modelPosition: [0, -0.8, 0],
+      modelRotation: [0, 0, 0]
+    },
     actions: {
-      idle: { type: '3d', asset: 'assets/model.glb' }
+      idle: { type: '3d', loop: true },
+      jump: { type: '3d', loop: false, durationMs: 900 }
     }
   })
-  await writeFile(join(directory, 'assets', 'model.glb'), 'future-test-model', 'utf8')
   await writeFile(
     join(directory, 'assets', 'preview.svg'),
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#c4b5fd"/></svg>',
+    'utf8'
+  )
+}
+
+async function createUnsafeGltfPack(directory: string): Promise<void> {
+  await mkdir(join(directory, 'assets'), { recursive: true })
+  await writeManifest(directory, {
+    id: 'unsafe-gltf-dependency',
+    name: 'Unsafe GLTF Dependency',
+    renderer: '3d',
+    version: 1,
+    defaultWidth: 220,
+    defaultHeight: 260,
+    scale: 1,
+    model: 'assets/model.gltf',
+    actions: { idle: { type: '3d', loop: true } }
+  })
+  await writeFile(
+    join(directory, 'assets', 'model.gltf'),
+    JSON.stringify({
+      asset: { version: '2.0' },
+      buffers: [{ uri: 'https://example.com/remote.bin', byteLength: 4 }]
+    }),
     'utf8'
   )
 }

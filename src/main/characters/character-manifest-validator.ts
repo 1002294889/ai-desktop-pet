@@ -7,7 +7,10 @@ import {
   type CharacterActionType,
   type CharacterManifest,
   type CharacterRendererType,
-  type SpriteCharacterAction
+  type SpriteCharacterAction,
+  type ThreeDCharacterAction,
+  type ThreeDCharacterConfiguration,
+  type ThreeDVector
 } from '../../shared/character'
 
 const CHARACTER_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/
@@ -17,6 +20,13 @@ const MAX_ASSET_PATH_LENGTH = 240
 const MAX_CHARACTER_DIMENSION = 4_096
 const MAX_CHARACTER_SCALE = 10
 const MAX_SPRITE_FPS = 120
+const MAX_3D_COORDINATE = 1_000
+const MAX_3D_ACTION_DURATION_MS = 30_000
+const MAX_ANIMATION_CLIP_NAME_LENGTH = 120
+const DEFAULT_3D_CAMERA_POSITION: ThreeDVector = [0, 0.6, 4.5]
+const DEFAULT_3D_MODEL_POSITION: ThreeDVector = [0, -0.9, 0]
+const DEFAULT_3D_MODEL_ROTATION: ThreeDVector = [0, 0, 0]
+const MODEL_EXTENSIONS = ['.glb', '.gltf'] as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -58,6 +68,57 @@ function readOptionalLoop(record: Record<string, unknown>, source: string): bool
   }
 
   return loop
+}
+
+function readOptionalString(
+  record: Record<string, unknown>,
+  field: string,
+  source: string,
+  maximumLength: number
+): string | undefined {
+  const value = record[field]
+
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (typeof value !== 'string' || !value.trim() || value.length > maximumLength) {
+    throw new Error(
+      `${source}: "${field}" must be a non-empty string up to ${maximumLength} characters`
+    )
+  }
+
+  return value.trim()
+}
+
+function readOptionalThreeDVector(
+  record: Record<string, unknown>,
+  field: string,
+  source: string,
+  fallback: ThreeDVector
+): ThreeDVector {
+  const value = record[field]
+
+  if (value === undefined) {
+    return [...fallback]
+  }
+
+  if (
+    !Array.isArray(value) ||
+    value.length !== 3 ||
+    value.some(
+      (entry) =>
+        typeof entry !== 'number' ||
+        !Number.isFinite(entry) ||
+        Math.abs(entry) > MAX_3D_COORDINATE
+    )
+  ) {
+    throw new Error(
+      `${source}: "${field}" must contain three finite numbers between -${MAX_3D_COORDINATE} and ${MAX_3D_COORDINATE}`
+    )
+  }
+
+  return [value[0] as number, value[1] as number, value[2] as number]
 }
 
 function validateAssetPath(asset: string, field: string, source: string): string {
@@ -129,6 +190,37 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
     return spriteAction
   }
 
+  if (type === '3d') {
+    const durationMs = value.durationMs
+    const clip = readOptionalString(
+      value,
+      'clip',
+      actionSource,
+      MAX_ANIMATION_CLIP_NAME_LENGTH
+    )
+
+    if (
+      durationMs !== undefined &&
+      (typeof durationMs !== 'number' ||
+        !Number.isInteger(durationMs) ||
+        durationMs <= 0 ||
+        durationMs > MAX_3D_ACTION_DURATION_MS)
+    ) {
+      throw new Error(
+        `${actionSource}: "durationMs" must be an integer from 1 to ${MAX_3D_ACTION_DURATION_MS}`
+      )
+    }
+
+    const action: ThreeDCharacterAction = {
+      type,
+      ...(loop === undefined ? {} : { loop }),
+      ...(clip ? { clip } : {}),
+      ...(typeof durationMs === 'number' ? { durationMs } : {})
+    }
+
+    return action
+  }
+
   const asset = validateAssetPath(
     readNonEmptyString(value, 'asset', actionSource),
     'asset',
@@ -136,9 +228,64 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
   )
 
   return {
-    type: type as 'static' | 'animated-image' | 'live2d' | '3d',
+    type: type as 'static' | 'animated-image' | 'live2d',
     asset,
     ...(loop === undefined ? {} : { loop })
+  }
+}
+
+function readThreeDConfiguration(
+  value: Record<string, unknown>,
+  model: string | undefined,
+  source: string
+): ThreeDCharacterConfiguration {
+  const rawConfiguration = value['3d']
+
+  if (rawConfiguration !== undefined && !isRecord(rawConfiguration)) {
+    throw new Error(`${source}: "3d" must be an object when provided`)
+  }
+
+  const configuration = rawConfiguration ?? {}
+  const configuredSource = configuration.source
+
+  if (
+    configuredSource !== undefined &&
+    configuredSource !== 'model' &&
+    configuredSource !== 'procedural'
+  ) {
+    throw new Error(`${source}: "3d.source" must be "model" or "procedural"`)
+  }
+
+  const rendererSource = configuredSource ?? (model ? 'model' : 'procedural')
+
+  if (rendererSource === 'model' && !model) {
+    throw new Error(`${source}: renderer "3d" with source "model" requires "model"`)
+  }
+
+  if (rendererSource === 'procedural' && model) {
+    throw new Error(`${source}: procedural 3D characters must not declare "model"`)
+  }
+
+  return {
+    source: rendererSource,
+    cameraPosition: readOptionalThreeDVector(
+      configuration,
+      'cameraPosition',
+      `${source}: "3d"`,
+      DEFAULT_3D_CAMERA_POSITION
+    ),
+    modelPosition: readOptionalThreeDVector(
+      configuration,
+      'modelPosition',
+      `${source}: "3d"`,
+      DEFAULT_3D_MODEL_POSITION
+    ),
+    modelRotation: readOptionalThreeDVector(
+      configuration,
+      'modelRotation',
+      `${source}: "3d"`,
+      DEFAULT_3D_MODEL_ROTATION
+    )
   }
 }
 
@@ -208,6 +355,38 @@ export function validateCharacterManifest(value: unknown, source: string): Chara
     throw new Error(`${source}: "preview" must be a non-empty string when provided`)
   }
 
+  const rawModel = value.model
+
+  if (rawModel !== undefined && (typeof rawModel !== 'string' || !rawModel.trim())) {
+    throw new Error(`${source}: "model" must be a non-empty string when provided`)
+  }
+
+  const model =
+    typeof rawModel === 'string'
+      ? validateAssetPath(rawModel, 'model', source)
+      : undefined
+
+  if (
+    model &&
+    !MODEL_EXTENSIONS.some((extension) => model.toLowerCase().endsWith(extension))
+  ) {
+    throw new Error(`${source}: "model" must reference a .glb or .gltf file`)
+  }
+
+  if (renderer !== '3d' && (model || value['3d'] !== undefined)) {
+    throw new Error(`${source}: "model" and "3d" are only valid for renderer "3d"`)
+  }
+
+  if (
+    renderer === '3d' &&
+    Object.values(actions).some((action) => action.type !== '3d')
+  ) {
+    throw new Error(`${source}: renderer "3d" requires 3D action definitions`)
+  }
+
+  const threeDConfiguration =
+    renderer === '3d' ? readThreeDConfiguration(value, model, source) : undefined
+
   return {
     id,
     name,
@@ -219,6 +398,8 @@ export function validateCharacterManifest(value: unknown, source: string): Chara
     ...(typeof preview === 'string'
       ? { preview: validateAssetPath(preview, 'preview', source) }
       : {}),
+    ...(model ? { model } : {}),
+    ...(threeDConfiguration ? { '3d': threeDConfiguration } : {}),
     actions
   }
 }

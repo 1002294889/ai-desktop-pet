@@ -6,7 +6,7 @@ export const CHARACTER_RENDERER_TYPES = [
   '3d'
 ] as const
 
-export const IMPLEMENTED_CHARACTER_RENDERER_TYPES = ['static', 'sprite'] as const
+export const IMPLEMENTED_CHARACTER_RENDERER_TYPES = ['static', 'sprite', '3d'] as const
 
 export type CharacterRendererType = (typeof CHARACTER_RENDERER_TYPES)[number]
 
@@ -49,7 +49,8 @@ export interface Live2DCharacterAction extends CharacterActionBase {
 
 export interface ThreeDCharacterAction extends CharacterActionBase {
   type: '3d'
-  asset: string
+  clip?: string
+  durationMs?: number
 }
 
 export type CharacterAction =
@@ -58,6 +59,17 @@ export type CharacterAction =
   | AnimatedImageCharacterAction
   | Live2DCharacterAction
   | ThreeDCharacterAction
+
+export type ThreeDVector = [number, number, number]
+
+export type ThreeDCharacterSource = 'model' | 'procedural'
+
+export interface ThreeDCharacterConfiguration {
+  source: ThreeDCharacterSource
+  cameraPosition: ThreeDVector
+  modelPosition: ThreeDVector
+  modelRotation: ThreeDVector
+}
 
 export interface CharacterManifest {
   id: string
@@ -68,6 +80,8 @@ export interface CharacterManifest {
   defaultHeight: number
   scale: number
   preview?: string
+  model?: string
+  '3d'?: ThreeDCharacterConfiguration
   actions: Record<string, CharacterAction>
 }
 
@@ -93,7 +107,6 @@ export interface LoadedLive2DCharacterAction {
 
 export interface LoadedThreeDCharacterAction {
   definition: ThreeDCharacterAction
-  assetUrl: string
 }
 
 export type LoadedCharacterAction =
@@ -106,6 +119,7 @@ export type LoadedCharacterAction =
 export interface LoadedCharacter {
   manifest: CharacterManifest
   actions: Record<string, LoadedCharacterAction>
+  modelUrl?: string
 }
 
 export function isLoadedCharacter(value: unknown): value is LoadedCharacter {
@@ -113,10 +127,16 @@ export function isLoadedCharacter(value: unknown): value is LoadedCharacter {
     return false
   }
 
-  const { manifest, actions } = value
+  const { manifest, actions, modelUrl } = value
 
-  return isCharacterManifest(manifest) && isRecord(actions) && Object.values(actions).every(
-    isLoadedCharacterAction
+  return (
+    isCharacterManifest(manifest) &&
+    isRecord(actions) &&
+    Object.values(actions).every(isLoadedCharacterAction) &&
+    (modelUrl === undefined || typeof modelUrl === 'string') &&
+    (manifest.renderer !== '3d' ||
+      manifest['3d']?.source !== 'model' ||
+      typeof modelUrl === 'string')
   )
 }
 
@@ -137,6 +157,11 @@ function isCharacterManifest(value: unknown): value is CharacterManifest {
     typeof value.scale === 'number' &&
     Number.isFinite(value.scale) &&
     (value.preview === undefined || typeof value.preview === 'string') &&
+    (value.model === undefined || typeof value.model === 'string') &&
+    (value['3d'] === undefined || isThreeDCharacterConfiguration(value['3d'])) &&
+    (value.renderer !== '3d' ||
+      (isThreeDCharacterConfiguration(value['3d']) &&
+        (value['3d'].source !== 'model' || typeof value.model === 'string'))) &&
     isRecord(value.actions) &&
     Object.values(value.actions).every(isCharacterAction)
   )
@@ -158,6 +183,15 @@ function isCharacterAction(value: unknown): value is CharacterAction {
     )
   }
 
+  if (value.type === '3d') {
+    return (
+      (value.loop === undefined || typeof value.loop === 'boolean') &&
+      (value.clip === undefined || typeof value.clip === 'string') &&
+      (value.durationMs === undefined ||
+        (typeof value.durationMs === 'number' && Number.isFinite(value.durationMs)))
+    )
+  }
+
   return typeof value.asset === 'string'
 }
 
@@ -166,11 +200,38 @@ function isLoadedCharacterAction(value: unknown): value is LoadedCharacterAction
     return false
   }
 
-  return value.definition.type === 'sprite'
-    ? Array.isArray(value.frameUrls) &&
-        value.frameUrls.length > 0 &&
-        value.frameUrls.every((url) => typeof url === 'string')
-    : typeof value.assetUrl === 'string'
+  if (value.definition.type === 'sprite') {
+    return (
+      Array.isArray(value.frameUrls) &&
+      value.frameUrls.length > 0 &&
+      value.frameUrls.every((url) => typeof url === 'string')
+    )
+  }
+
+  return value.definition.type === '3d' || typeof value.assetUrl === 'string'
+}
+
+function isThreeDCharacterConfiguration(
+  value: unknown
+): value is ThreeDCharacterConfiguration {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    (value.source === 'model' || value.source === 'procedural') &&
+    isThreeDVector(value.cameraPosition) &&
+    isThreeDVector(value.modelPosition) &&
+    isThreeDVector(value.modelRotation)
+  )
+}
+
+function isThreeDVector(value: unknown): value is ThreeDVector {
+  return (
+    Array.isArray(value) &&
+    value.length === 3 &&
+    value.every((entry) => typeof entry === 'number' && Number.isFinite(entry))
+  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

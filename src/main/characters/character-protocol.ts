@@ -9,7 +9,10 @@ export const CHARACTER_PROTOCOL_SCHEME = 'character-pack'
 
 const CONTENT_TYPES: Record<string, string> = {
   '.apng': 'image/apng',
+  '.bin': 'application/octet-stream',
   '.gif': 'image/gif',
+  '.glb': 'model/gltf-binary',
+  '.gltf': 'model/gltf+json',
   '.jpeg': 'image/jpeg',
   '.jpg': 'image/jpeg',
   '.png': 'image/png',

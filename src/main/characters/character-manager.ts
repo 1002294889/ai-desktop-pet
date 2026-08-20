@@ -14,6 +14,7 @@ import {
   extname,
   isAbsolute,
   join,
+  posix,
   relative,
   resolve
 } from 'node:path'
@@ -49,6 +50,8 @@ const IMAGE_EXTENSIONS = new Set([
   '.svg',
   '.webp'
 ])
+const MODEL_EXTENSIONS = new Set(['.glb', '.gltf'])
+const GLTF_DEPENDENCY_EXTENSIONS = new Set([...IMAGE_EXTENSIONS, '.bin'])
 const PROHIBITED_FILE_EXTENSIONS = new Set([
   '.app',
   '.bat',
@@ -403,9 +406,11 @@ export class CharacterManager {
 
     const manifest = validateCharacterManifest(manifestValue, MANIFEST_FILE_NAME)
     const actionAssets = Object.values(manifest.actions).flatMap(getActionAssetPaths)
+    const modelAssets = await resolveThreeDModelAssets(directory, manifest)
     const previewAssetPath = await resolvePreviewAsset(directory, manifest)
     const allowedAssets = new Set([
       ...actionAssets,
+      ...modelAssets,
       ...(previewAssetPath ? [previewAssetPath] : [])
     ])
 
@@ -436,7 +441,15 @@ export class CharacterManager {
           actionName,
           this.loadAction(record.manifest.id, definition)
         ])
-      )
+      ),
+      ...(record.manifest.model
+        ? {
+            modelUrl: this.createAssetUrl(
+              record.manifest.id,
+              record.manifest.model
+            )
+          }
+        : {})
     }
   }
 
@@ -460,13 +473,25 @@ export class CharacterManager {
   }
 
   private canActivateRecord(record: CharacterRecord): boolean {
-    return (
-      IMPLEMENTED_CHARACTER_RENDERER_TYPES.includes(
+    if (
+      !IMPLEMENTED_CHARACTER_RENDERER_TYPES.includes(
         record.manifest.renderer as (typeof IMPLEMENTED_CHARACTER_RENDERER_TYPES)[number]
-      ) &&
-      Object.values(record.manifest.actions).every(
-        (action) => action.type === 'static' || action.type === 'sprite'
       )
+    ) {
+      return false
+    }
+
+    if (record.manifest.renderer === '3d') {
+      return (
+        record.manifest['3d'] !== undefined &&
+        Object.values(record.manifest.actions).every(
+          (action) => action.type === '3d'
+        )
+      )
+    }
+
+    return Object.values(record.manifest.actions).every(
+      (action) => action.type === 'static' || action.type === 'sprite'
     )
   }
 
@@ -505,8 +530,7 @@ export class CharacterManager {
         }
       case '3d':
         return {
-          definition,
-          assetUrl: this.createAssetUrl(characterId, definition.asset)
+          definition
         }
     }
   }
@@ -696,6 +720,10 @@ async function resolvePreviewAsset(
 }
 
 function validateRenderableAssetTypes(manifest: CharacterManifest): void {
+  if (manifest.model && !MODEL_EXTENSIONS.has(extname(manifest.model).toLowerCase())) {
+    throw new Error('3D models must use .glb or .gltf')
+  }
+
   for (const [actionName, action] of Object.entries(manifest.actions)) {
     if (action.type === 'live2d' || action.type === '3d') {
       continue
@@ -712,7 +740,121 @@ function validateRenderableAssetTypes(manifest: CharacterManifest): void {
 }
 
 function getActionAssetPaths(action: CharacterAction): string[] {
-  return action.type === 'sprite' ? action.frames : [action.asset]
+  switch (action.type) {
+    case 'sprite':
+      return action.frames
+    case '3d':
+      return []
+    default:
+      return [action.asset]
+  }
+}
+
+async function resolveThreeDModelAssets(
+  directory: string,
+  manifest: CharacterManifest
+): Promise<string[]> {
+  if (!manifest.model) {
+    return []
+  }
+
+  const extension = extname(manifest.model).toLowerCase()
+
+  if (!MODEL_EXTENSIONS.has(extension)) {
+    throw new Error('3D models must use .glb or .gltf')
+  }
+
+  if (extension === '.glb') {
+    return [manifest.model]
+  }
+
+  const modelPath = resolveAssetInsideDirectory(directory, manifest.model)
+
+  if (!modelPath) {
+    throw new Error('3D model escapes the character pack')
+  }
+
+  let document: unknown
+
+  try {
+    document = JSON.parse(await readFile(modelPath, 'utf8'))
+  } catch (error: unknown) {
+    throw new Error('GLTF model must contain valid JSON', { cause: error })
+  }
+
+  if (!isRecord(document)) {
+    throw new Error('GLTF model must contain a JSON object')
+  }
+
+  const dependencyUris = [
+    ...readGltfResourceUris(document.buffers, 'buffers'),
+    ...readGltfResourceUris(document.images, 'images')
+  ]
+  const modelDirectory = posix.dirname(manifest.model)
+  const dependencies = dependencyUris.flatMap((uri) => {
+    if (uri.startsWith('data:')) {
+      return []
+    }
+
+    if (uri.includes('?') || uri.includes('#')) {
+      throw new Error('GLTF resource paths cannot contain query strings or fragments')
+    }
+
+    let decodedUri: string
+
+    try {
+      decodedUri = decodeURIComponent(uri)
+    } catch (error: unknown) {
+      throw new Error('GLTF resource path contains invalid encoding', { cause: error })
+    }
+
+    const segments = decodedUri.split('/')
+
+    if (
+      !decodedUri ||
+      decodedUri.includes(':') ||
+      decodedUri.includes('\\') ||
+      decodedUri.startsWith('/') ||
+      segments.some((segment) => !segment || segment === '.' || segment === '..')
+    ) {
+      throw new Error('GLTF resource paths must stay inside the character pack')
+    }
+
+    const dependencyPath =
+      modelDirectory === '.'
+        ? decodedUri
+        : posix.join(modelDirectory, decodedUri)
+
+    if (!GLTF_DEPENDENCY_EXTENSIONS.has(extname(dependencyPath).toLowerCase())) {
+      throw new Error('GLTF dependencies must be images or binary buffers')
+    }
+
+    return [dependencyPath]
+  })
+
+  return [manifest.model, ...dependencies]
+}
+
+function readGltfResourceUris(value: unknown, field: string): string[] {
+  if (value === undefined) {
+    return []
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(`GLTF "${field}" must be an array`)
+  }
+
+  return value.flatMap((entry, index) => {
+    if (!isRecord(entry) || entry.uri === undefined) {
+      return []
+    }
+
+    if (typeof entry.uri !== 'string' || !entry.uri) {
+      throw new Error(`GLTF "${field}[${index}].uri" must be a string`)
+    }
+
+    return [entry.uri]
+  })
 }
 
 function isImageAsset(assetPath: string): boolean {

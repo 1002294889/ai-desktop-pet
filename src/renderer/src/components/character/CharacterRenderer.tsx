@@ -1,16 +1,23 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 
 import type {
   LoadedCharacter,
   LoadedCharacterAction,
   LoadedSpriteCharacterAction,
-  LoadedStaticCharacterAction
+  LoadedStaticCharacterAction,
+  LoadedThreeDCharacterAction
 } from '../../../../shared/character'
 import type { PetAction } from '../../../../shared/pet-action'
 import type { EmotionSnapshot } from '../../../../shared/companion-state'
 import { SpriteRenderer } from './renderers/SpriteRenderer'
 import { StaticImageRenderer } from './renderers/StaticImageRenderer'
 import { TEMPORARY_ACTION_INDICATORS } from './temporary-action-visuals'
+
+const ThreeDRenderer = lazy(async () => {
+  const module = await import('./renderers/ThreeDRenderer')
+
+  return { default: module.ThreeDRenderer }
+})
 
 interface CharacterRendererProps {
   character: LoadedCharacter
@@ -51,6 +58,7 @@ export function CharacterRenderer({
     <div
       className="character-renderer"
       data-character-id={character.manifest.id}
+      data-renderer={character.manifest.renderer}
       data-action={currentAction}
       data-rendered-action={renderedActionName}
       data-mood={emotion?.state ?? 'neutral'}
@@ -75,9 +83,22 @@ export function CharacterRenderer({
           onComplete={() => onActionComplete(currentAction)}
         />
       ) : null}
+      {isThreeDAction(action) ? (
+        <Suspense fallback={<p className="character-status">Preparing 3D renderer…</p>}>
+          <ThreeDRenderer
+            key={character.manifest.id}
+            character={character}
+            action={action}
+            requestedActionName={currentAction}
+            renderedActionName={renderedActionName}
+            restartKey={animationKey}
+            onComplete={() => onActionComplete(currentAction)}
+            emotion={emotion}
+          />
+        </Suspense>
+      ) : null}
       {action.definition.type === 'animated-image' ||
-      action.definition.type === 'live2d' ||
-      action.definition.type === '3d' ? (
+      action.definition.type === 'live2d' ? (
         <p className="character-status">Renderer “{action.definition.type}” is not implemented yet.</p>
       ) : null}
       {import.meta.env.DEV && indicator ? (
@@ -95,4 +116,8 @@ function isStaticAction(action: LoadedCharacterAction): action is LoadedStaticCh
 
 function isSpriteAction(action: LoadedCharacterAction): action is LoadedSpriteCharacterAction {
   return action.definition.type === 'sprite'
+}
+
+function isThreeDAction(action: LoadedCharacterAction): action is LoadedThreeDCharacterAction {
+  return action.definition.type === '3d'
 }

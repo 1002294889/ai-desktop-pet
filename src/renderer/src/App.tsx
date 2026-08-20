@@ -201,7 +201,6 @@ export function App(): React.JSX.Element {
             {...interactionBindings}
           >
             <CharacterRenderer
-              key={actionState.startedAt}
               character={character}
               currentAction={actionState.currentAction}
               animationKey={actionState.startedAt}
