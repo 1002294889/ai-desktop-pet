@@ -77,6 +77,25 @@ function exerciseTransientAndGrowthBehavior(memoryManager: MemoryManager): void 
     emotion.refresh()
     assert(coordinator.getSnapshot().emotion.state === 'neutral', 'emotion did not decay to neutral')
 
+    coordinator.handlePetInteraction('hold')
+    assert(coordinator.getSnapshot().emotion.state === 'happy', 'hold did not create a happy mood')
+
+    emotion.reset()
+    coordinator.handleAutonomousAction('sleep')
+    assert(
+      coordinator.getSnapshot().emotion.state === 'sleepy',
+      'autonomous sleep did not create a sleepy mood'
+    )
+
+    emotion.reset()
+    coordinator.handleAIResponse(['angry'])
+    assert(
+      coordinator.getSnapshot().emotion.state === 'annoyed',
+      'angry semantic action did not create an annoyed mood'
+    )
+
+    emotion.reset()
+
     coordinator.recordConversation('今天有点累。', EMPTY_MEMORY_DIAGNOSTICS)
     const tiredState = coordinator.getSnapshot()
 
@@ -97,6 +116,8 @@ function exerciseTransientAndGrowthBehavior(memoryManager: MemoryManager): void 
     )
 
     const countBeforeClickLoop = afterNormalChats.interactionCount
+
+    now += 30_000
 
     for (let index = 0; index < 20; index += 1) {
       coordinator.handlePetInteraction('single-click')
@@ -125,6 +146,9 @@ function exerciseTransientAndGrowthBehavior(memoryManager: MemoryManager): void 
       achievementBecameExcited: true,
       autonomousMoodDidNotOverride: true,
       decayedToNeutral: true,
+      happyInteractionMood: true,
+      sleepyAutonomousMood: true,
+      annoyedActionMood: true,
       tirednessStayedCalm: true,
       gradualConversationGrowth: true,
       clickLoopThrottled: true,

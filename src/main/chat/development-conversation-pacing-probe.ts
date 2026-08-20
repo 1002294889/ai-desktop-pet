@@ -2,11 +2,14 @@ import type { AIPetAction } from '../../shared/ai-pet-action'
 import type { ChatMessage } from '../../shared/chat'
 import type { EmotionSnapshot } from '../../shared/companion-state'
 import type { AIChatRequest, AIChatResponse, AIProvider } from '../ai/ai-provider'
+import { AIProviderError, getSafeAIErrorMessage } from '../ai/ai-provider-error'
 import {
   createUnpacedReplyPlan,
   formatCompanionReplyPlanText,
   normalizeReplyPlanForTurn
 } from '../ai/companion-reply-plan'
+import { DeepSeekProvider } from '../ai/DeepSeekProvider'
+import { parsePetActionToolCalls } from '../ai/deepseek-pet-action-tool'
 import { createCompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
 import type {
   LongTermMemoryDiagnostics,
@@ -22,6 +25,7 @@ import {
   getLocalDesktopTimeContext,
   type LocalDesktopTimeContext
 } from './local-time-context'
+import { LocalReplyProvider } from './LocalReplyProvider'
 import { calculateDynamicReplyDelay } from './reply-pacing'
 
 const PROBE_MODES = ['exercise', 'deepseek'] as const
@@ -60,6 +64,9 @@ export async function runConversationPacingProbe(
 async function runScriptedConversationPacingProbe(
   memoryManager: MemoryManager
 ): Promise<void> {
+  await verifyLocalFallbackSemanticActions()
+  verifyUnknownToolActionRejection()
+  await verifyControlledProviderFailure()
 
   memoryManager.clearConversationHistory()
   memoryManager.deleteRelationshipState()
@@ -274,6 +281,9 @@ async function runScriptedConversationPacingProbe(
       timeUsedOnlyWhenRelevant: true,
       fallbackSingleSegment: true,
       jumpActionPreserved: true,
+      localFallbackSemanticActions: true,
+      unknownToolActionRejected: true,
+      providerFailureControlled: true,
       emotionAndRelationshipPreserved: true,
       memoryPreparationCalls: memoryPreparer.callCount,
       timerLeak: false
@@ -285,6 +295,92 @@ async function runScriptedConversationPacingProbe(
     memoryManager.clearConversationHistory()
     memoryManager.deleteRelationshipState()
   }
+}
+
+async function verifyLocalFallbackSemanticActions(): Promise<void> {
+  const provider = new LocalReplyProvider()
+  const cases = [
+    ['跳一下', 'jump'],
+    ['挥挥手', 'wave'],
+    ['坐下', 'sit'],
+    ['睡觉吧', 'sleep'],
+    ['醒醒', 'wake']
+  ] as const
+
+  for (const [message, expectedAction] of cases) {
+    const response = await provider.generateReply({
+      characterName: 'Fallback Test Pet',
+      messages: [{ role: 'user', content: message }],
+      responseFormat: 'companion-reply-plan',
+      petActionToolChoice: 'required'
+    })
+
+    assert(
+      response.actions?.includes(expectedAction),
+      `local fallback did not map "${message}" to "${expectedAction}"`
+    )
+  }
+
+  const championResponse = await provider.generateReply({
+    characterName: 'Fallback Test Pet',
+    messages: [{ role: 'user', content: '我今天拿冠军了。' }],
+    responseFormat: 'companion-reply-plan'
+  })
+
+  assert(
+    championResponse.actions?.includes('happy') &&
+      championResponse.actions.includes('jump'),
+    'local fallback champion response did not select a natural positive action'
+  )
+}
+
+function verifyUnknownToolActionRejection(): void {
+  const parsed = parsePetActionToolCalls([
+    {
+      id: 'unknown-action-probe',
+      type: 'function',
+      function: {
+        name: 'play_pet_action',
+        arguments: JSON.stringify({ action: 'run_arbitrary_code' })
+      }
+    }
+  ])
+
+  assert(
+    parsed.actions.length === 0 && parsed.rejected.length === 1,
+    'unknown AI pet action was not rejected'
+  )
+}
+
+async function verifyControlledProviderFailure(): Promise<void> {
+  const provider = new DeepSeekProvider({
+    apiKey: 'development-probe-key',
+    baseUrl: 'https://provider.invalid',
+    model: 'probe-model',
+    timeoutMs: 1_000,
+    fetchImplementation: async () => new Response('{}', { status: 401 })
+  })
+
+  try {
+    await provider.generateReply({
+      characterName: 'Failure Test Pet',
+      messages: [{ role: 'user', content: 'hello' }]
+    })
+  } catch (error: unknown) {
+    const safeMessage = getSafeAIErrorMessage(error)
+
+    assert(
+      error instanceof AIProviderError && error.code === 'authentication',
+      'provider authentication failure was not classified safely'
+    )
+    assert(
+      !safeMessage.includes('development-probe-key') && safeMessage.length > 0,
+      'controlled provider failure exposed a credential or had no user-facing message'
+    )
+    return
+  }
+
+  throw new Error('[ConversationPacingProbe] provider failure unexpectedly succeeded')
 }
 
 async function runDeepSeekConversationPacingProbe(

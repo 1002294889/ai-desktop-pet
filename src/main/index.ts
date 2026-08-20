@@ -311,6 +311,9 @@ async function startApplication(): Promise<void> {
 }
 
 void startApplication().catch((error: unknown) => {
+  const failedDevelopmentProbe =
+    !app.isPackaged && process.env.DESKTOP_PET_PROBE_ONLY === '1'
+
   if (error instanceof MemoryManagerError) {
     console.error('Failed to start AI Desktop Pet memory storage.', { code: error.code })
   } else {
@@ -318,6 +321,11 @@ void startApplication().catch((error: unknown) => {
       name: error instanceof Error ? error.name : typeof error,
       message: error instanceof Error ? error.message : 'Unknown startup error'
     })
+  }
+
+  if (failedDevelopmentProbe) {
+    app.exit(1)
+    return
   }
 
   app.quit()

@@ -1,7 +1,7 @@
 {
   "name": "ai-desktop-pet",
-  "version": "0.1.0",
-  "description": "AI desktop pet with chat, animations and autonomous behaviors",
+  "version": "1.0.0",
+  "description": "AI desktop pet with replaceable characters, natural chat, local memory, and native desktop controls",
   "main": "./out/main/index.js",
   "type": "module",
   "scripts": {
@@ -10,7 +10,13 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
-    "build": "npm run typecheck && electron-vite build"
+    "build": "npm run typecheck && electron-vite build",
+    "package": "npm run build && electron-builder --dir --config.electronDist=node_modules/electron/dist",
+    "package:mac": "npm run build && electron-builder --mac dir --arm64 --config.electronDist=node_modules/electron/dist",
+    "dist": "npm run build && electron-builder --config.electronDist=node_modules/electron/dist",
+    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --config.electronDist=node_modules/electron/dist",
+    "dist:mac:x64": "npm run build && electron-builder --mac dmg --x64",
+    "dist:win": "npm run build && electron-builder --win nsis --x64"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
@@ -23,6 +29,7 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "typescript": "^7.0.2",
     "vite": "^7.3.6"

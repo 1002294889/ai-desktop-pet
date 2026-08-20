@@ -34,6 +34,22 @@ export class LocalReplyProvider implements AIProvider {
       return createPlannedResponse(['行，看好了。'], ['jump'])
     }
 
+    if (containsAny(normalizedMessage, ['挥挥手', '挥手', '招招手'])) {
+      return createPlannedResponse(['好呀，看到我啦。'], ['wave'])
+    }
+
+    if (containsAny(normalizedMessage, ['坐下', '坐好', '坐一会'])) {
+      return createPlannedResponse(['好，我陪你坐一会儿。'], ['sit'])
+    }
+
+    if (containsAny(normalizedMessage, ['睡觉吧', '去睡吧', '睡一会'])) {
+      return createPlannedResponse(['好，晚点叫我。'], ['sleep'])
+    }
+
+    if (containsAny(normalizedMessage, ['醒醒', '醒来', '起床啦'])) {
+      return createPlannedResponse(['醒啦，我在呢。'], ['wake'])
+    }
+
     if (normalizedMessage.includes('我还在工作')) {
       return createPlannedResponse([
         timeOfDay === 'late_night' ? '这个点还在忙？' : '还在忙啊？'
@@ -52,10 +68,10 @@ export class LocalReplyProvider implements AIProvider {
       }
     }
 
-    if (containsAny(normalizedMessage, ['比赛获奖', '比赛拿奖', '我拿奖了', '我获奖了'])) {
+    if (containsAny(normalizedMessage, ['拿冠军', '比赛获奖', '比赛拿奖', '我拿奖了', '我获奖了'])) {
       return createPlannedResponse(
         ['真的假的？你还真拿下了 😂', '最后第几名？'],
-        ['happy']
+        normalizedMessage.includes('冠军') ? ['happy', 'jump'] : ['happy']
       )
     }
 

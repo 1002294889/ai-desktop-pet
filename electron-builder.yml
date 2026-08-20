@@ -1,0 +1,46 @@
+appId: app.ai-desktop-pet
+productName: AI Desktop Pet
+
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - out/**/*
+  - package.json
+  - "!**/*.map"
+  - "!**/.env"
+  - "!**/.env.*"
+
+extraResources:
+  - from: characters
+    to: characters
+    filter:
+      - "**/*"
+
+asar: true
+
+mac:
+  category: public.app-category.entertainment
+  icon: icon.icns
+  target:
+    - dmg
+  artifactName: AI-Desktop-Pet-${version}-${arch}.${ext}
+
+dmg:
+  title: AI Desktop Pet ${version}
+  artifactName: AI-Desktop-Pet-${version}-${arch}.${ext}
+
+win:
+  icon: icon.ico
+  target:
+    - nsis
+  artifactName: AI-Desktop-Pet-Setup-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: AI Desktop Pet
