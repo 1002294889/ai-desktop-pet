@@ -44,6 +44,18 @@ const MIGRATIONS: readonly MemoryMigration[] = [
           ON conversations (created_at DESC, id DESC);
       `)
     }
+  },
+  {
+    version: 2,
+    apply: (database) => {
+      database.exec(`
+        CREATE TABLE memory_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        ) STRICT;
+      `)
+    }
   }
 ]
 

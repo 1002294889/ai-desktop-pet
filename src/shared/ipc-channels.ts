@@ -15,5 +15,15 @@ export const IPC_CHANNELS = {
   closeChat: 'chat:close',
   showSpeechBubble: 'chat:show-speech',
   dismissSpeechBubble: 'chat:dismiss-speech',
-  sendChatMessage: 'chat:send-message'
+  sendChatMessage: 'chat:send-message',
+  openMemorySettings: 'memory:open-settings',
+  getMemoryOverview: 'memory:get-overview',
+  updateMemoryProfile: 'memory:update-profile',
+  deleteMemoryProfile: 'memory:delete-profile',
+  updateManagedMemory: 'memory:update-record',
+  deleteManagedMemory: 'memory:delete-record',
+  setLongTermMemoryEnabled: 'memory:set-enabled',
+  clearConversationHistory: 'memory:clear-conversation',
+  clearLongTermMemory: 'memory:clear-long-term',
+  clearAllMemory: 'memory:clear-all'
 } as const

@@ -21,6 +21,10 @@ import {
   getLongTermMemoryProbeMode,
   runLongTermMemoryProbe
 } from './memory/development-long-term-memory-probe'
+import {
+  getMemoryManagementProbeMode,
+  runMemoryManagementProbe
+} from './memory/development-memory-management-probe'
 import { MemoryManagerError } from './memory/memory-manager-error'
 import { createPetWindow } from './windows/pet-window'
 
@@ -52,6 +56,14 @@ async function startApplication(): Promise<void> {
 
   if (developmentMemoryTestMode) {
     runDevelopmentMemoryProbe(memoryManager, developmentMemoryTestMode)
+  }
+
+  const memoryManagementProbeMode = app.isPackaged
+    ? undefined
+    : getMemoryManagementProbeMode()
+
+  if (memoryManagementProbeMode) {
+    await runMemoryManagementProbe(memoryManagementProbeMode, memoryManager)
   }
 
   const aiConfiguration = loadAIConfiguration()

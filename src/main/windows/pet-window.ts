@@ -11,6 +11,7 @@ import {
   type ChatProviderReplyDiagnostics
 } from '../chat/ChatController'
 import { registerChatHandlers } from '../ipc/chat'
+import { registerMemoryHandlers } from '../ipc/memory'
 import { registerPetMovementHandlers } from '../ipc/pet-movement'
 import { registerPetPointerDragHandlers } from '../ipc/pet-pointer-drag'
 import {
@@ -19,8 +20,10 @@ import {
 } from '../memory/LongTermMemoryCoordinator'
 import type { MemoryManager } from '../memory/MemoryManager'
 import { MemoryManagerError } from '../memory/memory-manager-error'
+import { MemoryService } from '../memory/MemoryService'
 import { DesktopMovementController } from './DesktopMovementController'
 import { ChatWindowController } from './ChatWindowController'
+import { MemoryWindowController } from './MemoryWindowController'
 import { PetPointerDragController } from './PetPointerDragController'
 import { attachPetDragEvents } from './pet-drag-events'
 import { attachWindowBoundsGuard, getInitialWindowPosition } from './window-bounds'
@@ -72,6 +75,7 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     options.aiProvider.provider,
     options.memoryManager
   )
+  const memoryService = new MemoryService(options.memoryManager, longTermMemory)
   const chatController = new ChatController({
     characterName: options.characterName,
     provider: options.aiProvider.provider,
@@ -84,6 +88,7 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     onPersistenceError: logPersistenceError
   })
   const chatWindowController = new ChatWindowController(window, chatController)
+  const memoryWindowController = new MemoryWindowController()
   const unregisterMovementHandlers = registerPetMovementHandlers(window, movementController)
   const unregisterPointerDragHandlers = registerPetPointerDragHandlers(
     window,
@@ -93,6 +98,11 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     window,
     chatController,
     chatWindowController
+  )
+  const unregisterMemoryHandlers = registerMemoryHandlers(
+    window,
+    memoryWindowController,
+    memoryService
   )
   const unsubscribeFromChatActions = chatController.subscribeToPetActions((actions) => {
     if (!window.isDestroyed()) {
@@ -109,8 +119,10 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     unregisterMovementHandlers()
     unregisterPointerDragHandlers()
     unregisterChatHandlers()
+    unregisterMemoryHandlers()
     unsubscribeFromChatActions()
     chatWindowController.dispose()
+    memoryWindowController.dispose()
     chatController.dispose()
     pointerDragController.dispose()
     movementController.dispose()

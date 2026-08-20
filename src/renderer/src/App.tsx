@@ -124,16 +124,28 @@ export function App(): React.JSX.Element {
         {!character && !loadError ? <p className="character-status">Loading character…</p> : null}
         {loadError ? <p className="character-status">{loadError}</p> : null}
         {character ? (
-          <button
-            className="chat-launch-button"
-            type="button"
-            aria-label={`Open chat with ${character.manifest.name}`}
-            title={`Chat with ${character.manifest.name}`}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => window.desktopApi.openChat()}
-          >
-            Chat
-          </button>
+          <div className="pet-utility-buttons">
+            <button
+              className="pet-utility-button"
+              type="button"
+              aria-label={`Open chat with ${character.manifest.name}`}
+              title={`Chat with ${character.manifest.name}`}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => window.desktopApi.openChat()}
+            >
+              Chat
+            </button>
+            <button
+              className="pet-utility-button"
+              type="button"
+              aria-label="Open memory and privacy settings"
+              title="Memory & Privacy"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => window.desktopApi.openMemorySettings()}
+            >
+              Memory
+            </button>
+          </div>
         ) : null}
         {import.meta.env.DEV && character ? (
           <output className="pet-action-debug" aria-live="polite">

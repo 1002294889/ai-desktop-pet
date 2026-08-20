@@ -3,6 +3,7 @@ import type { MemoryManager } from './MemoryManager'
 import type { MemoryRecord, UserProfileEntry } from './memory-types'
 
 export interface RetrievedMemoryContext {
+  longTermMemoryEnabled: boolean
   profile: readonly UserProfileEntry[]
   memories: readonly MemoryRecord[]
 }
@@ -45,13 +46,24 @@ export class MemoryContextBuilder {
       currentMessage
     ).slice(0, Math.min(MAX_RELEVANT_MEMORIES, remainingSlots))
 
-    return { profile, memories }
+    return { longTermMemoryEnabled: true, profile, memories }
   }
 }
 
 export function createPersistedMemoryContextMessage(
   context: RetrievedMemoryContext
 ): AIChatMessage | undefined {
+  if (!context.longTermMemoryEnabled) {
+    return {
+      role: 'system',
+      content: [
+        '## Long-term memory setting',
+        'The user has disabled long-term memory. No saved profile or memory data is available for this turn.',
+        'Do not claim that new information will be remembered. If the user explicitly asks you to remember something, clearly and briefly explain that long-term memory is disabled and can be enabled in Memory Settings.'
+      ].join('\n')
+    }
+  }
+
   if (context.profile.length === 0 && context.memories.length === 0) {
     return undefined
   }

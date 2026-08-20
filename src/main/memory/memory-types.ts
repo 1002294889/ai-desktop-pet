@@ -1,20 +1,12 @@
 import type { ChatRole } from '../../shared/chat'
+import {
+  MEMORY_CATEGORIES,
+  type MemoryCategory
+} from '../../shared/memory-management'
 
-export const MEMORY_TYPES = [
-  'profile',
-  'preference',
-  'person',
-  'goal',
-  'event',
-  'habit',
-  'relationship',
-  'interest',
-  'occupation',
-  'location_general',
-  'other'
-] as const
+export const MEMORY_TYPES = MEMORY_CATEGORIES
 
-export type MemoryType = (typeof MEMORY_TYPES)[number]
+export type MemoryType = MemoryCategory
 
 export interface UserProfileEntry {
   id: number

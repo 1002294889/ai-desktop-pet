@@ -6,6 +6,17 @@ import { isChatSendResult, isChatState } from '../shared/chat'
 import type { DesktopApi } from '../shared/desktop-api'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import {
+  isClearMemoryResult,
+  isDeleteMemoryItemResult,
+  isManagedMemory,
+  isManagedProfileEntry,
+  isMemoryOverview,
+  isMemoryOverviewQuery,
+  isMemorySettings,
+  isUpdateManagedMemoryInput,
+  isUpdateManagedProfileInput
+} from '../shared/memory-management'
+import {
   isPetMovementDirection,
   isPetMovementEdge,
   isPetMovementSnapshot
@@ -117,6 +128,115 @@ const desktopApi: DesktopApi = {
 
     if (!isChatSendResult(result)) {
       throw new Error('Main process returned an invalid chat send result')
+    }
+
+    return result
+  },
+  openMemorySettings: () => ipcRenderer.send(IPC_CHANNELS.openMemorySettings),
+  getMemoryOverview: async (query) => {
+    if (!isMemoryOverviewQuery(query)) {
+      throw new Error('Invalid memory overview query')
+    }
+
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.getMemoryOverview, query)
+
+    if (!isMemoryOverview(result)) {
+      throw new Error('Main process returned an invalid memory overview')
+    }
+
+    return result
+  },
+  updateMemoryProfile: async (input) => {
+    if (!isUpdateManagedProfileInput(input)) {
+      throw new Error('Invalid profile update')
+    }
+
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.updateMemoryProfile, input)
+
+    if (!isManagedProfileEntry(result)) {
+      throw new Error('Main process returned an invalid profile entry')
+    }
+
+    return result
+  },
+  deleteMemoryProfile: async (key) => {
+    if (typeof key !== 'string') {
+      throw new Error('Invalid profile key')
+    }
+
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.deleteMemoryProfile, key)
+
+    if (!isDeleteMemoryItemResult(result)) {
+      throw new Error('Main process returned an invalid profile deletion result')
+    }
+
+    return result
+  },
+  updateManagedMemory: async (input) => {
+    if (!isUpdateManagedMemoryInput(input)) {
+      throw new Error('Invalid memory update')
+    }
+
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.updateManagedMemory, input)
+
+    if (result !== null && !isManagedMemory(result)) {
+      throw new Error('Main process returned an invalid memory entry')
+    }
+
+    return result
+  },
+  deleteManagedMemory: async (id) => {
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new Error('Invalid memory id')
+    }
+
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.deleteManagedMemory, id)
+
+    if (!isDeleteMemoryItemResult(result)) {
+      throw new Error('Main process returned an invalid memory deletion result')
+    }
+
+    return result
+  },
+  setLongTermMemoryEnabled: async (enabled) => {
+    if (typeof enabled !== 'boolean') {
+      throw new Error('Invalid memory setting')
+    }
+
+    const result: unknown = await ipcRenderer.invoke(
+      IPC_CHANNELS.setLongTermMemoryEnabled,
+      enabled
+    )
+
+    if (!isMemorySettings(result)) {
+      throw new Error('Main process returned invalid memory settings')
+    }
+
+    return result
+  },
+  clearConversationHistory: async () => {
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.clearConversationHistory)
+
+    if (!isClearMemoryResult(result)) {
+      throw new Error('Main process returned an invalid clear result')
+    }
+
+    return result
+  },
+  clearLongTermMemory: async () => {
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.clearLongTermMemory)
+
+    if (!isClearMemoryResult(result)) {
+      throw new Error('Main process returned an invalid clear result')
+    }
+
+    return result
+  },
+  clearAllMemory: async () => {
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.clearAllMemory)
+
+    if (!isClearMemoryResult(result)) {
+      throw new Error('Main process returned an invalid clear result')
     }
 
     return result

@@ -3,6 +3,17 @@ import type { AIPetAction } from './ai-pet-action'
 import type { ChatSendResult, ChatState } from './chat'
 import type { PetMovementDirection, PetMovementEdge, PetMovementSnapshot } from './pet-movement'
 import type { PetPointerPosition } from './pet-pointer-drag'
+import type {
+  ClearMemoryResult,
+  DeleteMemoryItemResult,
+  ManagedMemory,
+  ManagedProfileEntry,
+  MemoryOverview,
+  MemoryOverviewQuery,
+  MemorySettings,
+  UpdateManagedMemoryInput,
+  UpdateManagedProfileInput
+} from './memory-management'
 
 export interface DesktopApi {
   getAppVersion: () => Promise<string>
@@ -22,4 +33,14 @@ export interface DesktopApi {
   showSpeechBubble: () => void
   dismissSpeechBubble: () => void
   sendChatMessage: (content: string) => Promise<ChatSendResult>
+  openMemorySettings: () => void
+  getMemoryOverview: (query: MemoryOverviewQuery) => Promise<MemoryOverview>
+  updateMemoryProfile: (input: UpdateManagedProfileInput) => Promise<ManagedProfileEntry>
+  deleteMemoryProfile: (key: string) => Promise<DeleteMemoryItemResult>
+  updateManagedMemory: (input: UpdateManagedMemoryInput) => Promise<ManagedMemory | null>
+  deleteManagedMemory: (id: number) => Promise<DeleteMemoryItemResult>
+  setLongTermMemoryEnabled: (enabled: boolean) => Promise<MemorySettings>
+  clearConversationHistory: () => Promise<ClearMemoryResult>
+  clearLongTermMemory: () => Promise<ClearMemoryResult>
+  clearAllMemory: () => Promise<ClearMemoryResult>
 }

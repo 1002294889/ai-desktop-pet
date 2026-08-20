@@ -46,6 +46,16 @@ interface ConversationRow {
   created_at: unknown
 }
 
+interface CountRow {
+  count: unknown
+}
+
+export interface ClearMemoryCounts {
+  profileEntriesDeleted: number
+  memoriesDeleted: number
+  conversationMessagesDeleted: number
+}
+
 const DEFAULT_MEMORY_IMPORTANCE = 0.5
 const DEFAULT_LIST_LIMIT = 100
 const MAX_LIST_LIMIT = 500
@@ -53,6 +63,7 @@ const MAX_PROFILE_KEY_LENGTH = 120
 const MAX_PROFILE_VALUE_LENGTH = 20_000
 const MAX_MEMORY_CONTENT_LENGTH = 50_000
 const MAX_CONVERSATION_CONTENT_LENGTH = 20_000
+const LONG_TERM_MEMORY_ENABLED_SETTING = 'long_term_memory_enabled'
 
 export class MemoryManager {
   private database: DatabaseSync | undefined
@@ -233,6 +244,20 @@ export class MemoryManager {
     })
   }
 
+  countMemories(type?: MemoryType): number {
+    const normalizedType = type === undefined ? undefined : requireMemoryType(type)
+
+    return this.executeRead((database) => {
+      const row = normalizedType
+        ? database
+            .prepare('SELECT COUNT(*) AS count FROM memories WHERE type = ?')
+            .get(normalizedType)
+        : database.prepare('SELECT COUNT(*) AS count FROM memories').get()
+
+      return requireCount(row)
+    })
+  }
+
   updateMemory(id: number, input: UpdateMemoryInput): MemoryRecord | null {
     const normalizedId = normalizeId(id)
 
@@ -287,6 +312,40 @@ export class MemoryManager {
     })
   }
 
+  clearProfile(): number {
+    return this.executeWrite((database) => {
+      const result = database.prepare('DELETE FROM user_profile').run()
+
+      return toSafeInteger(result.changes)
+    })
+  }
+
+  clearLongTermMemory(): ClearMemoryCounts {
+    return this.executeWrite((database) => {
+      database.exec('BEGIN IMMEDIATE')
+
+      try {
+        const profileEntriesDeleted = toSafeInteger(
+          database.prepare('DELETE FROM user_profile').run().changes
+        )
+        const memoriesDeleted = toSafeInteger(
+          database.prepare('DELETE FROM memories').run().changes
+        )
+
+        database.exec('COMMIT')
+
+        return {
+          profileEntriesDeleted,
+          memoriesDeleted,
+          conversationMessagesDeleted: 0
+        }
+      } catch (error: unknown) {
+        rollbackQuietly(database)
+        throw error
+      }
+    })
+  }
+
   addConversationMessage(input: AddConversationMessageInput): ConversationRecord {
     const role = requireChatRole(input.role)
     const content = normalizeRequiredText(input.content, MAX_CONVERSATION_CONTENT_LENGTH)
@@ -327,6 +386,87 @@ export class MemoryManager {
       const result = database.prepare('DELETE FROM conversations').run()
 
       return toSafeInteger(result.changes)
+    })
+  }
+
+  countConversationMessages(): number {
+    return this.executeRead((database) => {
+      const row = database.prepare('SELECT COUNT(*) AS count FROM conversations').get()
+
+      return requireCount(row)
+    })
+  }
+
+  getLongTermMemoryEnabled(): boolean {
+    return this.executeRead((database) => {
+      const row = database
+        .prepare('SELECT value FROM memory_settings WHERE key = ?')
+        .get(LONG_TERM_MEMORY_ENABLED_SETTING)
+
+      if (row === undefined) {
+        return true
+      }
+
+      if (typeof row !== 'object' || row === null) {
+        throw new MemoryManagerError('read-failed')
+      }
+
+      const value = (row as { value?: unknown }).value
+
+      if (value !== 'true' && value !== 'false') {
+        throw new MemoryManagerError('read-failed')
+      }
+
+      return value === 'true'
+    })
+  }
+
+  setLongTermMemoryEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') {
+      throw new MemoryManagerError('invalid-input')
+    }
+
+    return this.executeWrite((database) => {
+      database
+        .prepare(`
+          INSERT INTO memory_settings (key, value, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET
+            value = excluded.value,
+            updated_at = excluded.updated_at
+        `)
+        .run(LONG_TERM_MEMORY_ENABLED_SETTING, enabled ? 'true' : 'false', Date.now())
+
+      return enabled
+    })
+  }
+
+  clearAllMemory(): ClearMemoryCounts {
+    return this.executeWrite((database) => {
+      database.exec('BEGIN IMMEDIATE')
+
+      try {
+        const profileEntriesDeleted = toSafeInteger(
+          database.prepare('DELETE FROM user_profile').run().changes
+        )
+        const memoriesDeleted = toSafeInteger(
+          database.prepare('DELETE FROM memories').run().changes
+        )
+        const conversationMessagesDeleted = toSafeInteger(
+          database.prepare('DELETE FROM conversations').run().changes
+        )
+
+        database.exec('COMMIT')
+
+        return {
+          profileEntriesDeleted,
+          memoriesDeleted,
+          conversationMessagesDeleted
+        }
+      } catch (error: unknown) {
+        rollbackQuietly(database)
+        throw error
+      }
     })
   }
 
@@ -584,4 +724,20 @@ function toSafeInteger(value: SQLInputValue): number {
   }
 
   throw new MemoryManagerError('write-failed')
+}
+
+function requireCount(row: unknown): number {
+  if (typeof row !== 'object' || row === null) {
+    throw new MemoryManagerError('read-failed')
+  }
+
+  return requireInteger((row as CountRow).count)
+}
+
+function rollbackQuietly(database: DatabaseSync): void {
+  try {
+    database.exec('ROLLBACK')
+  } catch {
+    // Preserve the original write error.
+  }
 }

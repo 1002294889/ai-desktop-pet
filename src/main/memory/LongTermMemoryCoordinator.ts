@@ -52,7 +52,7 @@ export class LongTermMemoryCoordinator {
   async prepare(input: PrepareMemoryContextInput): Promise<PreparedMemoryContext> {
     if (!this.enabled) {
       return {
-        context: { profile: [], memories: [] },
+        context: { longTermMemoryEnabled: false, profile: [], memories: [] },
         diagnostics: createEmptyDiagnostics()
       }
     }
