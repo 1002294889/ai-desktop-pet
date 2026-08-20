@@ -56,6 +56,22 @@ const MIGRATIONS: readonly MemoryMigration[] = [
         ) STRICT;
       `)
     }
+  },
+  {
+    version: 3,
+    apply: (database) => {
+      database.exec(`
+        CREATE TABLE companion_relationship (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          familiarity REAL NOT NULL CHECK (familiarity >= 0 AND familiarity <= 1),
+          trust REAL NOT NULL CHECK (trust >= 0 AND trust <= 1),
+          interaction_count INTEGER NOT NULL CHECK (interaction_count >= 0),
+          first_interaction_at INTEGER,
+          last_interaction_at INTEGER,
+          updated_at INTEGER NOT NULL
+        ) STRICT;
+      `)
+    }
   }
 ]
 

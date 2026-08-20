@@ -25,5 +25,11 @@ export const IPC_CHANNELS = {
   setLongTermMemoryEnabled: 'memory:set-enabled',
   clearConversationHistory: 'memory:clear-conversation',
   clearLongTermMemory: 'memory:clear-long-term',
-  clearAllMemory: 'memory:clear-all'
+  clearAllMemory: 'memory:clear-all',
+  getCompanionState: 'companion:get-state',
+  companionStateChanged: 'companion:state-changed',
+  reportCompanionInteraction: 'companion:report-interaction',
+  reportCompanionAutonomousAction: 'companion:report-autonomous-action',
+  resetCompanionEmotion: 'companion:reset-emotion',
+  resetCompanionRelationship: 'companion:reset-relationship'
 } as const

@@ -9,6 +9,7 @@ import type {
   UpdateManagedProfileInput
 } from '../../shared/memory-management'
 import type { LongTermMemoryCoordinator } from './LongTermMemoryCoordinator'
+import type { CompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
 import type { MemoryManager } from './MemoryManager'
 import { MemoryManagerError } from './memory-manager-error'
 import type { MemoryRecord, UserProfileEntry } from './memory-types'
@@ -20,7 +21,8 @@ const MAX_SEARCH_LENGTH = 200
 export class MemoryService {
   constructor(
     private readonly memoryManager: MemoryManager,
-    private readonly longTermMemory: LongTermMemoryCoordinator
+    private readonly longTermMemory: LongTermMemoryCoordinator,
+    private readonly companionState?: CompanionStateCoordinator
   ) {
     longTermMemory.setEnabled(memoryManager.getLongTermMemoryEnabled())
   }
@@ -120,7 +122,12 @@ export class MemoryService {
   }
 
   clearAllMemory(): ClearMemoryResult {
-    return this.memoryManager.clearAllMemory()
+    const result = this.memoryManager.clearAllMemory()
+
+    this.companionState?.resetRelationship()
+    this.companionState?.resetEmotion()
+
+    return result
   }
 }
 

@@ -2,6 +2,7 @@ import type { AIPetAction } from '../../shared/ai-pet-action'
 import type { ChatMessage } from '../../shared/chat'
 import type { AIProviderSelection } from '../ai/provider-factory'
 import { ChatController } from '../chat/ChatController'
+import { createCompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
 import { createLongTermMemoryCoordinator } from './LongTermMemoryCoordinator'
 import type { MemoryManager } from './MemoryManager'
 
@@ -43,6 +44,7 @@ export async function runLongTermMemoryProbe(
   options: RunLongTermMemoryProbeOptions
 ): Promise<void> {
   const actionRequests: AIPetAction[][] = []
+  const companionState = createCompanionStateCoordinator(options.memoryManager)
   const diagnostics: Array<{
     candidateCount: number
     acceptedCategories: readonly string[]
@@ -60,6 +62,7 @@ export async function runLongTermMemoryProbe(
       options.providerSelection.provider,
       options.memoryManager
     ),
+    companionState,
     onMemoryDiagnostics: (result) => {
       diagnostics.push({
         candidateCount: result.candidateCount,
@@ -234,6 +237,7 @@ export async function runLongTermMemoryProbe(
   } finally {
     stopListeningForActions()
     controller.dispose()
+    companionState.dispose()
   }
 }
 

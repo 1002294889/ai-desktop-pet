@@ -10,7 +10,9 @@ import {
   type ChatPersistenceErrorDiagnostics,
   type ChatProviderReplyDiagnostics
 } from '../chat/ChatController'
+import { createCompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
 import { registerChatHandlers } from '../ipc/chat'
+import { registerCompanionStateHandlers } from '../ipc/companion-state'
 import { registerMemoryHandlers } from '../ipc/memory'
 import { registerPetMovementHandlers } from '../ipc/pet-movement'
 import { registerPetPointerDragHandlers } from '../ipc/pet-pointer-drag'
@@ -75,13 +77,19 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     options.aiProvider.provider,
     options.memoryManager
   )
-  const memoryService = new MemoryService(options.memoryManager, longTermMemory)
+  const companionState = createCompanionStateCoordinator(options.memoryManager)
+  const memoryService = new MemoryService(
+    options.memoryManager,
+    longTermMemory,
+    companionState
+  )
   const chatController = new ChatController({
     characterName: options.characterName,
     provider: options.aiProvider.provider,
     providerInfo: options.aiProvider.info,
     memoryManager: options.memoryManager,
     longTermMemory,
+    companionState,
     onProviderError: options.reportProviderErrors ? logProviderError : undefined,
     onProviderReply: options.reportProviderErrors ? logProviderReply : undefined,
     onMemoryDiagnostics: options.reportProviderErrors ? logMemoryDiagnostics : undefined,
@@ -104,6 +112,11 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     memoryWindowController,
     memoryService
   )
+  const unregisterCompanionStateHandlers = registerCompanionStateHandlers(
+    window,
+    memoryWindowController,
+    companionState
+  )
   const unsubscribeFromChatActions = chatController.subscribeToPetActions((actions) => {
     if (!window.isDestroyed()) {
       window.webContents.send(IPC_CHANNELS.chatPetActions, actions)
@@ -120,10 +133,12 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     unregisterPointerDragHandlers()
     unregisterChatHandlers()
     unregisterMemoryHandlers()
+    unregisterCompanionStateHandlers()
     unsubscribeFromChatActions()
     chatWindowController.dispose()
     memoryWindowController.dispose()
     chatController.dispose()
+    companionState.dispose()
     pointerDragController.dispose()
     movementController.dispose()
   })

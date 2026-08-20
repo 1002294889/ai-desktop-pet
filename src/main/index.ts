@@ -10,6 +10,10 @@ import {
   registerCharacterProtocolScheme
 } from './characters/character-protocol'
 import { loadDevelopmentEnvironment } from './config/development-environment'
+import {
+  getCompanionProbeMode,
+  runCompanionProbe
+} from './companion/development-companion-probe'
 import { registerAppInfoHandlers } from './ipc/app-info'
 import { registerCharacterHandlers } from './ipc/characters'
 import { MemoryManager } from './memory/MemoryManager'
@@ -64,6 +68,17 @@ async function startApplication(): Promise<void> {
 
   if (memoryManagementProbeMode) {
     await runMemoryManagementProbe(memoryManagementProbeMode, memoryManager)
+  }
+
+  const companionProbeMode = app.isPackaged ? undefined : getCompanionProbeMode()
+
+  if (companionProbeMode) {
+    runCompanionProbe(companionProbeMode, memoryManager)
+  }
+
+  if (!app.isPackaged && process.env.DESKTOP_PET_PROBE_ONLY === '1') {
+    app.quit()
+    return
   }
 
   const aiConfiguration = loadAIConfiguration()

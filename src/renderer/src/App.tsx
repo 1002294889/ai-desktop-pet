@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { LoadedCharacter } from '../../shared/character'
+import {
+  isCompanionAutonomousAction,
+  isCompanionInteraction
+} from '../../shared/companion-state'
 import type { PetMovementSnapshot } from '../../shared/pet-movement'
 import { autonomousBehaviorController } from './behavior/autonomous-behavior-controller-instance'
 import { useAutonomousBehaviorState } from './behavior/useAutonomousBehaviorState'
@@ -9,6 +13,7 @@ import { usePetChatBridge } from './chat/usePetChatBridge'
 import { aiActionSequenceController } from './chat/ai-action-sequence-controller-instance'
 import { useAIActionSequenceState } from './chat/useAIActionSequenceState'
 import { CharacterRenderer } from './components/character/CharacterRenderer'
+import { useCompanionState } from './companion/useCompanionState'
 import { petInteractionController } from './interaction/pet-interaction-controller-instance'
 import { usePetInteraction } from './interaction/usePetInteraction'
 import { usePetInteractionState } from './interaction/usePetInteractionState'
@@ -24,9 +29,12 @@ export function App(): React.JSX.Element {
   const behaviorState = useAutonomousBehaviorState(autonomousBehaviorController)
   const interactionState = usePetInteractionState(petInteractionController)
   const aiActionSequenceState = useAIActionSequenceState(aiActionSequenceController)
+  const companion = useCompanionState()
+  const companionState = companion.state
   const interactionBindings = usePetInteraction(petInteractionController)
   const chatState = usePetChatBridge()
   const handledInteractionCount = useRef(0)
+  const reportedAutonomousTransitionCount = useRef(0)
 
   useDeveloperActionShortcuts(petActionController, autonomousBehaviorController)
   useDeveloperChatShortcuts(chatState?.mode)
@@ -42,6 +50,10 @@ export function App(): React.JSX.Element {
 
     handledInteractionCount.current = interactionState.interactionCount
 
+    if (isCompanionInteraction(interactionState.currentInteraction)) {
+      window.desktopApi.reportCompanionInteraction(interactionState.currentInteraction)
+    }
+
     if (
       interactionState.currentInteraction === 'single-click' &&
       chatState?.mode !== 'chat'
@@ -49,6 +61,24 @@ export function App(): React.JSX.Element {
       window.desktopApi.showSpeechBubble()
     }
   }, [chatState?.mode, interactionState.currentInteraction, interactionState.interactionCount])
+
+  useEffect(() => {
+    if (companionState) {
+      autonomousBehaviorController.setEmotion(companionState.emotion)
+    }
+  }, [companionState])
+
+  useEffect(() => {
+    if (
+      behaviorState.transitionCount === reportedAutonomousTransitionCount.current ||
+      !isCompanionAutonomousAction(behaviorState.plannedAction)
+    ) {
+      return
+    }
+
+    reportedAutonomousTransitionCount.current = behaviorState.transitionCount
+    window.desktopApi.reportCompanionAutonomousAction(behaviorState.plannedAction)
+  }, [behaviorState.plannedAction, behaviorState.transitionCount])
 
   useEffect(() => {
     return window.desktopApi.onPetDragStateChange((isDragging) =>
@@ -118,6 +148,7 @@ export function App(): React.JSX.Element {
               currentAction={actionState.currentAction}
               animationKey={actionState.startedAt}
               onActionComplete={handleActionComplete}
+              emotion={companionState?.emotion}
             />
           </div>
         ) : null}
@@ -163,6 +194,11 @@ export function App(): React.JSX.Element {
             {' · '}AI actions: {aiActionSequenceState.status}/
             {aiActionSequenceState.activeAction ?? 'none'} →{' '}
             {aiActionSequenceState.pendingActions.join(',') || 'none'}
+            {' · '}Mood: {companionState?.emotion.state ?? companion.status}@{companionState?.emotion.intensity.toFixed(2) ?? '?'}
+            {' · '}Relationship: F{companionState?.relationship.familiarity.toFixed(3) ?? '?'}/T
+            {companionState?.relationship.trust.toFixed(3) ?? '?'} · Interactions:{' '}
+            {companionState?.relationship.interactionCount ?? '?'}
+            {companion.error ? ` · Companion error: ${companion.error}` : ''}
           </output>
         ) : null}
       </section>

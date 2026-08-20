@@ -115,7 +115,7 @@ export function MemoryControls({
           <div>
             <div>
               <strong>Clear all memory</strong>
-              <p>Deletes profile information, saved memories, and conversation history.</p>
+              <p>Deletes profile information, saved memories, conversation history, and relationship progress.</p>
             </div>
             {isConfirmingClearAll ? (
               <div className="clear-all-confirmation" role="group" aria-label="Confirm clear all memory">

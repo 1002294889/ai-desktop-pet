@@ -3,6 +3,10 @@ import { dirname } from 'node:path'
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
 
 import { CHAT_ROLES, type ChatRole } from '../../shared/chat'
+import {
+  isRelationshipState,
+  type RelationshipState
+} from '../../shared/companion-state'
 import { MemoryManagerError } from './memory-manager-error'
 import { applyMemoryMigrations } from './memory-migrations'
 import {
@@ -48,6 +52,14 @@ interface ConversationRow {
 
 interface CountRow {
   count: unknown
+}
+
+interface RelationshipRow {
+  familiarity: unknown
+  trust: unknown
+  interaction_count: unknown
+  first_interaction_at: unknown
+  last_interaction_at: unknown
 }
 
 export interface ClearMemoryCounts {
@@ -441,6 +453,77 @@ export class MemoryManager {
     })
   }
 
+  getRelationshipState(): RelationshipState | null {
+    return this.executeRead((database) => {
+      const row = database
+        .prepare(`
+          SELECT
+            familiarity,
+            trust,
+            interaction_count,
+            first_interaction_at,
+            last_interaction_at
+          FROM companion_relationship
+          WHERE id = 1
+        `)
+        .get()
+
+      return row === undefined ? null : mapRelationshipRow(row)
+    })
+  }
+
+  setRelationshipState(state: RelationshipState): RelationshipState {
+    if (
+      !isRelationshipState(state) ||
+      (state.firstInteractionAt !== null &&
+        state.lastInteractionAt !== null &&
+        state.firstInteractionAt > state.lastInteractionAt)
+    ) {
+      throw new MemoryManagerError('invalid-input')
+    }
+
+    return this.executeWrite((database) => {
+      database
+        .prepare(`
+          INSERT INTO companion_relationship (
+            id,
+            familiarity,
+            trust,
+            interaction_count,
+            first_interaction_at,
+            last_interaction_at,
+            updated_at
+          )
+          VALUES (1, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            familiarity = excluded.familiarity,
+            trust = excluded.trust,
+            interaction_count = excluded.interaction_count,
+            first_interaction_at = excluded.first_interaction_at,
+            last_interaction_at = excluded.last_interaction_at,
+            updated_at = excluded.updated_at
+        `)
+        .run(
+          state.familiarity,
+          state.trust,
+          state.interactionCount,
+          state.firstInteractionAt,
+          state.lastInteractionAt,
+          Date.now()
+        )
+
+      return requireRelationshipState(this.readRelationshipState(database))
+    })
+  }
+
+  deleteRelationshipState(): boolean {
+    return this.executeWrite((database) => {
+      const result = database.prepare('DELETE FROM companion_relationship WHERE id = 1').run()
+
+      return toSafeInteger(result.changes) > 0
+    })
+  }
+
   clearAllMemory(): ClearMemoryCounts {
     return this.executeWrite((database) => {
       database.exec('BEGIN IMMEDIATE')
@@ -455,6 +538,7 @@ export class MemoryManager {
         const conversationMessagesDeleted = toSafeInteger(
           database.prepare('DELETE FROM conversations').run().changes
         )
+        database.prepare('DELETE FROM companion_relationship').run()
 
         database.exec('COMMIT')
 
@@ -504,6 +588,23 @@ export class MemoryManager {
       .get(id)
 
     return row === undefined ? null : mapConversationRow(row)
+  }
+
+  private readRelationshipState(database: DatabaseSync): RelationshipState | null {
+    const row = database
+      .prepare(`
+        SELECT
+          familiarity,
+          trust,
+          interaction_count,
+          first_interaction_at,
+          last_interaction_at
+        FROM companion_relationship
+        WHERE id = 1
+      `)
+      .get()
+
+    return row === undefined ? null : mapRelationshipRow(row)
   }
 
   private executeRead<T>(operation: (database: DatabaseSync) => T): T {
@@ -580,6 +681,23 @@ function mapConversationRow(row: unknown): ConversationRecord {
   }
 }
 
+function mapRelationshipRow(row: unknown): RelationshipState {
+  const record = requireRow<RelationshipRow>(row)
+  const relationship = {
+    familiarity: requireNumber(record.familiarity),
+    trust: requireNumber(record.trust),
+    interactionCount: requireInteger(record.interaction_count),
+    firstInteractionAt: requireNullableInteger(record.first_interaction_at),
+    lastInteractionAt: requireNullableInteger(record.last_interaction_at)
+  }
+
+  if (!isRelationshipState(relationship)) {
+    throw new MemoryManagerError('read-failed')
+  }
+
+  return relationship
+}
+
 function requireProfileEntry(entry: UserProfileEntry | null): UserProfileEntry {
   if (!entry) {
     throw new MemoryManagerError('write-failed')
@@ -604,6 +722,14 @@ function requireConversationRecord(
   }
 
   return conversation
+}
+
+function requireRelationshipState(state: RelationshipState | null): RelationshipState {
+  if (!state) {
+    throw new MemoryManagerError('write-failed')
+  }
+
+  return state
 }
 
 function normalizeRequiredText(value: unknown, maximumLength: number): string {
@@ -708,6 +834,10 @@ function requireInteger(value: unknown): number {
   }
 
   return value as number
+}
+
+function requireNullableInteger(value: unknown): number | null {
+  return value === null ? null : requireInteger(value)
 }
 
 function toSafeInteger(value: SQLInputValue): number {

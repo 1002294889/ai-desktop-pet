@@ -162,7 +162,7 @@ export function useMemoryManagement(): MemoryManagementState {
     clearAllMemory: () =>
       runClearMutation(
         () => window.desktopApi.clearAllMemory(),
-        () => 'All profile information, saved memories, and conversation history were cleared.'
+        () => 'All profile information, saved memories, conversation history, and relationship progress were cleared.'
       ),
     refresh
   }

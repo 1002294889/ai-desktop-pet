@@ -1,4 +1,6 @@
 import type { ChatMessage } from '../../shared/chat'
+import type { CompanionStateSnapshot } from '../../shared/companion-state'
+import { createCompanionStateContextMessage } from '../companion/companion-context'
 import {
   createPersistedMemoryContextMessage,
   type RetrievedMemoryContext
@@ -11,7 +13,8 @@ const MAX_RECENT_CONVERSATION_MESSAGES = 12
 export function buildAIConversationContext(
   characterName: string,
   messages: readonly ChatMessage[],
-  persistedMemory?: RetrievedMemoryContext
+  persistedMemory?: RetrievedMemoryContext,
+  companionState?: CompanionStateSnapshot
 ): AIChatMessage[] {
   const recentMessages = messages.slice(-MAX_RECENT_CONVERSATION_MESSAGES)
   const persistedMemoryMessage = persistedMemory
@@ -20,6 +23,7 @@ export function buildAIConversationContext(
 
   return [
     { role: 'system', content: createDesktopPetSystemPrompt(characterName) },
+    ...(companionState ? [createCompanionStateContextMessage(companionState)] : []),
     ...(persistedMemoryMessage ? [persistedMemoryMessage] : []),
     ...recentMessages.map(({ role, content }) => ({ role, content }))
   ]

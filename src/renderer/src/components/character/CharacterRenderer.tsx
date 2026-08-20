@@ -7,6 +7,7 @@ import type {
   LoadedStaticCharacterAction
 } from '../../../../shared/character'
 import type { PetAction } from '../../../../shared/pet-action'
+import type { EmotionSnapshot } from '../../../../shared/companion-state'
 import { SpriteRenderer } from './renderers/SpriteRenderer'
 import { StaticImageRenderer } from './renderers/StaticImageRenderer'
 import { TEMPORARY_ACTION_INDICATORS } from './temporary-action-visuals'
@@ -16,13 +17,15 @@ interface CharacterRendererProps {
   currentAction: PetAction
   animationKey: number
   onActionComplete: (action: PetAction) => void
+  emotion?: EmotionSnapshot
 }
 
 export function CharacterRenderer({
   character,
   currentAction,
   animationKey,
-  onActionComplete
+  onActionComplete,
+  emotion
 }: CharacterRendererProps): React.JSX.Element {
   const requestedAction = character.actions[currentAction]
   const renderedActionName = requestedAction ? currentAction : 'idle'
@@ -50,6 +53,8 @@ export function CharacterRenderer({
       data-character-id={character.manifest.id}
       data-action={currentAction}
       data-rendered-action={renderedActionName}
+      data-mood={emotion?.state ?? 'neutral'}
+      data-mood-intensity={emotion?.intensity ?? 0}
       aria-label={`${character.manifest.name} character renderer, action ${currentAction}${fallbackDescription}`}
     >
       {isStaticAction(action) ? (

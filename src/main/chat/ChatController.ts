@@ -14,6 +14,7 @@ import type {
 import type { AIProvider } from '../ai/ai-provider'
 import { getSafeAIErrorMessage } from '../ai/ai-provider-error'
 import { buildAIConversationContext } from '../ai/conversation-context'
+import type { CompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
 import type {
   LongTermMemoryCoordinator,
   LongTermMemoryDiagnostics
@@ -42,6 +43,7 @@ interface ChatControllerOptions {
   providerInfo: ChatProviderInfo
   memoryManager: MemoryManager
   longTermMemory: LongTermMemoryCoordinator
+  companionState: CompanionStateCoordinator
   onProviderError?: (error: unknown) => void
   onProviderReply?: (diagnostics: ChatProviderReplyDiagnostics) => void
   onMemoryDiagnostics?: (diagnostics: LongTermMemoryDiagnostics) => void
@@ -181,6 +183,11 @@ export class ChatController {
 
       this.options.onMemoryDiagnostics?.(preparedMemory.diagnostics)
 
+      const companionState = this.options.companionState.recordConversation(
+        normalizedContent,
+        preparedMemory.diagnostics
+      )
+
       if (generation !== this.replyGeneration || this.state.mode !== 'chat') {
         return { accepted: true }
       }
@@ -190,7 +197,8 @@ export class ChatController {
         messages: buildAIConversationContext(
           this.state.characterName,
           messages,
-          preparedMemory.context
+          preparedMemory.context,
+          companionState
         ),
         signal: requestController.signal
       })
@@ -205,6 +213,8 @@ export class ChatController {
         ...(reply.rejectedActionRequests ?? []),
         ...actionValidation.rejected
       ]
+
+      this.options.companionState.handleAIResponse(actionValidation.actions)
 
       this.setState({
         messages: this.limitMessages([...this.state.messages, assistantMessage]),

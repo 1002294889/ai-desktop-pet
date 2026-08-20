@@ -1,6 +1,11 @@
 import type { LoadedCharacter } from './character'
 import type { AIPetAction } from './ai-pet-action'
 import type { ChatSendResult, ChatState } from './chat'
+import type {
+  CompanionAutonomousAction,
+  CompanionInteraction,
+  CompanionStateSnapshot
+} from './companion-state'
 import type { PetMovementDirection, PetMovementEdge, PetMovementSnapshot } from './pet-movement'
 import type { PetPointerPosition } from './pet-pointer-drag'
 import type {
@@ -43,4 +48,12 @@ export interface DesktopApi {
   clearConversationHistory: () => Promise<ClearMemoryResult>
   clearLongTermMemory: () => Promise<ClearMemoryResult>
   clearAllMemory: () => Promise<ClearMemoryResult>
+  getCompanionState: () => Promise<CompanionStateSnapshot>
+  onCompanionStateChange: (
+    listener: (snapshot: CompanionStateSnapshot) => void
+  ) => () => void
+  reportCompanionInteraction: (interaction: CompanionInteraction) => void
+  reportCompanionAutonomousAction: (action: CompanionAutonomousAction) => void
+  resetCompanionEmotion: () => Promise<CompanionStateSnapshot>
+  resetCompanionRelationship: () => Promise<CompanionStateSnapshot>
 }

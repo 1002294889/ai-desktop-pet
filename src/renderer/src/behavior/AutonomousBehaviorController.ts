@@ -1,4 +1,5 @@
 import type { PetAction, PetActionState } from '../../../shared/pet-action'
+import type { EmotionSnapshot, EmotionState } from '../../../shared/companion-state'
 import type { PetMovementDirection, PetMovementEdge } from '../../../shared/pet-movement'
 import type { PetActionController } from '../pet/PetActionController'
 
@@ -19,6 +20,8 @@ export interface AutonomousBehaviorSnapshot {
   isDragPaused: boolean
   schedulerActive: boolean
   transitionCount: number
+  mood: EmotionState
+  moodIntensity: number
 }
 
 interface DurationRange {
@@ -54,6 +57,45 @@ const WEIGHTED_ACTIONS: readonly WeightedAction[] = [
   { action: 'sleep', weight: 5 }
 ]
 
+const EMOTION_WEIGHT_TARGETS: Record<EmotionState, readonly WeightedAction[]> = {
+  neutral: WEIGHTED_ACTIONS,
+  happy: [
+    { action: 'idle', weight: 28 },
+    { action: 'walk_left', weight: 25 },
+    { action: 'walk_right', weight: 25 },
+    { action: 'sit', weight: 18 },
+    { action: 'sleep', weight: 4 }
+  ],
+  excited: [
+    { action: 'idle', weight: 24 },
+    { action: 'walk_left', weight: 30 },
+    { action: 'walk_right', weight: 30 },
+    { action: 'sit', weight: 13 },
+    { action: 'sleep', weight: 3 }
+  ],
+  calm: [
+    { action: 'idle', weight: 40 },
+    { action: 'walk_left', weight: 10 },
+    { action: 'walk_right', weight: 10 },
+    { action: 'sit', weight: 34 },
+    { action: 'sleep', weight: 6 }
+  ],
+  sleepy: [
+    { action: 'idle', weight: 30 },
+    { action: 'walk_left', weight: 7 },
+    { action: 'walk_right', weight: 7 },
+    { action: 'sit', weight: 34 },
+    { action: 'sleep', weight: 22 }
+  ],
+  annoyed: [
+    { action: 'idle', weight: 45 },
+    { action: 'walk_left', weight: 18 },
+    { action: 'walk_right', weight: 18 },
+    { action: 'sit', weight: 17 },
+    { action: 'sleep', weight: 2 }
+  ]
+}
+
 const INTERRUPTION_RESUME_DELAY_MS = 750
 const DRAG_RESUME_DELAY_MS = 900
 
@@ -67,12 +109,20 @@ export class AutonomousBehaviorController {
   private waitingForInterruption = false
   private waitingForWake = false
   private isTransitioning = false
+  private emotion: EmotionSnapshot = {
+    state: 'neutral',
+    intensity: 0,
+    startedAt: 0,
+    decaysToNeutralAt: null
+  }
   private snapshot: AutonomousBehaviorSnapshot = {
     status: 'stopped',
     plannedAction: null,
     isDragPaused: false,
     schedulerActive: false,
-    transitionCount: 0
+    transitionCount: 0,
+    mood: 'neutral',
+    moodIntensity: 0
   }
 
   constructor(
@@ -175,6 +225,14 @@ export class AutonomousBehaviorController {
     }
 
     this.runAutonomousAction(action, durationMs ?? this.getActionDuration(action), true)
+  }
+
+  setEmotion(emotion: EmotionSnapshot): void {
+    this.emotion = emotion
+    this.updateSnapshot({
+      mood: emotion.state,
+      moodIntensity: emotion.intensity
+    })
   }
 
   handleMovementEdge(edge: PetMovementEdge): void {
@@ -329,7 +387,7 @@ export class AutonomousBehaviorController {
   }
 
   private chooseNextAction(): AutonomousAction {
-    const availableActions = WEIGHTED_ACTIONS.filter(
+    const availableActions = this.getWeightedActions().filter(
       ({ action }) => action !== this.lastPlannedAction
     )
     const totalWeight = availableActions.reduce((total, { weight }) => total + weight, 0)
@@ -348,8 +406,25 @@ export class AutonomousBehaviorController {
 
   private getActionDuration(action: AutonomousAction): number {
     const range = ACTION_DURATION_RANGES[action]
+    const multiplier = getDurationMultiplier(this.emotion, action)
 
-    return Math.round(range.minimum + this.random() * (range.maximum - range.minimum))
+    return Math.round(
+      (range.minimum + this.random() * (range.maximum - range.minimum)) * multiplier
+    )
+  }
+
+  private getWeightedActions(): readonly WeightedAction[] {
+    const target = EMOTION_WEIGHT_TARGETS[this.emotion.state]
+    const intensity = this.emotion.intensity
+
+    return WEIGHTED_ACTIONS.map((base) => {
+      const targetWeight = target.find(({ action }) => action === base.action)?.weight ?? base.weight
+
+      return {
+        action: base.action,
+        weight: base.weight + (targetWeight - base.weight) * intensity
+      }
+    })
   }
 
   private setMovementForAction(action: AutonomousAction): void {
@@ -424,4 +499,28 @@ function isActiveIdle(state: PetActionState): boolean {
 
 function isActiveIdleAfter(state: PetActionState, previousAction: PetAction): boolean {
   return isActiveIdle(state) && state.previousAction === previousAction
+}
+
+function getDurationMultiplier(
+  emotion: EmotionSnapshot,
+  action: AutonomousAction
+): number {
+  const intensity = emotion.intensity
+
+  switch (emotion.state) {
+    case 'excited':
+      return 1 - 0.2 * intensity
+    case 'happy':
+      return 1 - 0.08 * intensity
+    case 'calm':
+      return 1 + 0.22 * intensity
+    case 'sleepy':
+      return action === 'walk_left' || action === 'walk_right'
+        ? 1
+        : 1 + 0.3 * intensity
+    case 'annoyed':
+      return 1 + 0.08 * intensity
+    case 'neutral':
+      return 1
+  }
 }

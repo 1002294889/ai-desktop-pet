@@ -3,6 +3,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { isAIPetActionSequence } from '../shared/ai-pet-action'
 import type { LoadedCharacter } from '../shared/character'
 import { isChatSendResult, isChatState } from '../shared/chat'
+import {
+  isCompanionAutonomousAction,
+  isCompanionInteraction,
+  isCompanionStateSnapshot
+} from '../shared/companion-state'
 import type { DesktopApi } from '../shared/desktop-api'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import {
@@ -237,6 +242,57 @@ const desktopApi: DesktopApi = {
 
     if (!isClearMemoryResult(result)) {
       throw new Error('Main process returned an invalid clear result')
+    }
+
+    return result
+  },
+  getCompanionState: async () => {
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.getCompanionState)
+
+    if (!isCompanionStateSnapshot(result)) {
+      throw new Error('Main process returned invalid companion state')
+    }
+
+    return result
+  },
+  onCompanionStateChange: (listener) => {
+    const handleStateChange = (
+      _event: Electron.IpcRendererEvent,
+      snapshot: unknown
+    ): void => {
+      if (isCompanionStateSnapshot(snapshot)) {
+        listener(snapshot)
+      }
+    }
+
+    ipcRenderer.on(IPC_CHANNELS.companionStateChanged, handleStateChange)
+
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.companionStateChanged, handleStateChange)
+  },
+  reportCompanionInteraction: (interaction) => {
+    if (isCompanionInteraction(interaction)) {
+      ipcRenderer.send(IPC_CHANNELS.reportCompanionInteraction, interaction)
+    }
+  },
+  reportCompanionAutonomousAction: (action) => {
+    if (isCompanionAutonomousAction(action)) {
+      ipcRenderer.send(IPC_CHANNELS.reportCompanionAutonomousAction, action)
+    }
+  },
+  resetCompanionEmotion: async () => {
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.resetCompanionEmotion)
+
+    if (!isCompanionStateSnapshot(result)) {
+      throw new Error('Main process returned invalid companion state')
+    }
+
+    return result
+  },
+  resetCompanionRelationship: async () => {
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.resetCompanionRelationship)
+
+    if (!isCompanionStateSnapshot(result)) {
+      throw new Error('Main process returned invalid companion state')
     }
 
     return result
