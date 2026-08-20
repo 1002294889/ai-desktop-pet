@@ -6,6 +6,10 @@ import { loadAIConfiguration } from './ai/config'
 import { createAIProvider } from './ai/provider-factory'
 import { CharacterManager } from './characters/character-manager'
 import {
+  getCharacterManagementProbeMode,
+  runCharacterManagementProbe
+} from './characters/development-character-management-probe'
+import {
   registerCharacterAssetProtocol,
   registerCharacterProtocolScheme
 } from './characters/character-protocol'
@@ -19,7 +23,6 @@ import {
   runConversationPacingProbe
 } from './chat/development-conversation-pacing-probe'
 import { registerAppInfoHandlers } from './ipc/app-info'
-import { registerCharacterHandlers } from './ipc/characters'
 import { MemoryManager } from './memory/MemoryManager'
 import {
   configureDevelopmentMemoryTest,
@@ -49,11 +52,14 @@ async function startApplication(): Promise<void> {
     ? { loaded: false }
     : loadDevelopmentEnvironment(app.getAppPath())
 
-  const charactersDirectory = app.isPackaged
+  const builtInCharactersDirectory = app.isPackaged
     ? join(process.resourcesPath, 'characters')
     : join(app.getAppPath(), 'characters')
   const characterManager = new CharacterManager({
-    charactersDirectory,
+    builtInCharactersDirectory,
+    userCharactersDirectory: join(app.getPath('userData'), 'characters'),
+    settingsFilePath: join(app.getPath('userData'), 'character-settings.json'),
+    defaultCharacterId: 'default',
     preferredCharacterId: process.env.DESKTOP_PET_CHARACTER_ID
   })
   const databasePath = join(app.getPath('userData'), 'pet-memory.db')
@@ -61,6 +67,18 @@ async function startApplication(): Promise<void> {
   await characterManager.initialize()
   memoryManager = new MemoryManager({ databasePath })
   memoryManager.initialize()
+
+  const characterManagementProbeMode = app.isPackaged
+    ? undefined
+    : getCharacterManagementProbeMode()
+
+  if (characterManagementProbeMode) {
+    await runCharacterManagementProbe(characterManagementProbeMode, {
+      characterManager,
+      repositoryRoot: app.getAppPath(),
+      userCharactersDirectory: join(app.getPath('userData'), 'characters')
+    })
+  }
 
   if (developmentMemoryTestMode) {
     runDevelopmentMemoryProbe(memoryManager, developmentMemoryTestMode)
@@ -105,7 +123,6 @@ async function startApplication(): Promise<void> {
   const aiProvider = createAIProvider(aiConfiguration)
   registerCharacterAssetProtocol(characterManager)
   registerAppInfoHandlers()
-  registerCharacterHandlers(characterManager)
 
   if (!app.isPackaged) {
     const activeCharacter = characterManager.getActiveCharacter()
@@ -119,6 +136,12 @@ async function startApplication(): Promise<void> {
     console.info(
       `[CharacterManager] Loaded active character: ${activeCharacter.manifest.name} (${activeCharacter.manifest.id})`
     )
+    console.info(
+      `[CharacterManager] User character storage: ${join(app.getPath('userData'), 'characters')}`
+    )
+    for (const warning of characterManager.getWarnings()) {
+      console.warn(`[CharacterManager] ${warning}`)
+    }
     console.info(`[MemoryManager] Local database ready: ${databasePath}`)
     for (const warning of aiConfiguration.warnings) {
       console.warn(`[AIConfiguration] ${warning}`)
@@ -160,7 +183,7 @@ async function startApplication(): Promise<void> {
 
   const createMainWindow = (): void => {
     createPetWindow({
-      characterName,
+      characterManager,
       aiProvider,
       memoryManager: requireMemoryManager(),
       reportProviderErrors: !app.isPackaged

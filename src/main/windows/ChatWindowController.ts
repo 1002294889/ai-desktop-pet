@@ -36,6 +36,10 @@ export class ChatWindowController {
   syncToState(state: ChatState): void {
     this.sendStateToPet(state)
 
+    if (this.window && !this.window.isDestroyed()) {
+      this.window.setTitle(`${state.characterName} Chat`)
+    }
+
     if (state.mode === 'hidden') {
       this.window?.hide()
       this.lastVisibleMode = 'hidden'

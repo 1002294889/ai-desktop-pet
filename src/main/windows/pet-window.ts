@@ -5,6 +5,7 @@ import { BrowserWindow } from 'electron'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import type { AIProviderSelection } from '../ai/provider-factory'
 import { AIProviderError } from '../ai/ai-provider-error'
+import type { CharacterManager } from '../characters/character-manager'
 import {
   ChatController,
   type ChatPersistenceErrorDiagnostics,
@@ -14,6 +15,7 @@ import {
 import { createCompanionStateCoordinator } from '../companion/CompanionStateCoordinator'
 import { registerChatHandlers } from '../ipc/chat'
 import { registerCompanionStateHandlers } from '../ipc/companion-state'
+import { registerCharacterHandlers } from '../ipc/characters'
 import { registerMemoryHandlers } from '../ipc/memory'
 import { registerPetMovementHandlers } from '../ipc/pet-movement'
 import { registerPetPointerDragHandlers } from '../ipc/pet-pointer-drag'
@@ -26,6 +28,7 @@ import { MemoryManagerError } from '../memory/memory-manager-error'
 import { MemoryService } from '../memory/MemoryService'
 import { DesktopMovementController } from './DesktopMovementController'
 import { ChatWindowController } from './ChatWindowController'
+import { CharacterWindowController } from './CharacterWindowController'
 import { MemoryWindowController } from './MemoryWindowController'
 import { PetPointerDragController } from './PetPointerDragController'
 import { attachPetDragEvents } from './pet-drag-events'
@@ -34,13 +37,14 @@ import { attachWindowBoundsGuard, getInitialWindowPosition } from './window-boun
 const PET_WINDOW_SIZE = 300
 
 export interface CreatePetWindowOptions {
-  characterName: string
+  characterManager: CharacterManager
   aiProvider: AIProviderSelection
   memoryManager: MemoryManager
   reportProviderErrors: boolean
 }
 
 export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow {
+  const initialCharacter = options.characterManager.getActiveCharacter()
   const initialPosition = getInitialWindowPosition({
     width: PET_WINDOW_SIZE,
     height: PET_WINDOW_SIZE
@@ -85,7 +89,7 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     companionState
   )
   const chatController = new ChatController({
-    characterName: options.characterName,
+    characterName: initialCharacter.manifest.name,
     provider: options.aiProvider.provider,
     providerInfo: options.aiProvider.info,
     memoryManager: options.memoryManager,
@@ -100,6 +104,7 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     onPersistenceError: logPersistenceError
   })
   const chatWindowController = new ChatWindowController(window, chatController)
+  const characterWindowController = new CharacterWindowController()
   const memoryWindowController = new MemoryWindowController()
   const unregisterMovementHandlers = registerPetMovementHandlers(window, movementController)
   const unregisterPointerDragHandlers = registerPetPointerDragHandlers(
@@ -121,6 +126,14 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     memoryWindowController,
     companionState
   )
+  const unregisterCharacterHandlers = registerCharacterHandlers({
+    petWindow: window,
+    characterManager: options.characterManager,
+    characterWindowController,
+    onActiveCharacterChanged: (character) => {
+      chatController.setCharacterName(character.manifest.name)
+    }
+  })
   const unsubscribeFromChatActions = chatController.subscribeToPetActions((actions) => {
     if (!window.isDestroyed()) {
       window.webContents.send(IPC_CHANNELS.chatPetActions, actions)
@@ -138,8 +151,10 @@ export function createPetWindow(options: CreatePetWindowOptions): BrowserWindow 
     unregisterChatHandlers()
     unregisterMemoryHandlers()
     unregisterCompanionStateHandlers()
+    unregisterCharacterHandlers()
     unsubscribeFromChatActions()
     chatWindowController.dispose()
+    characterWindowController.dispose()
     memoryWindowController.dispose()
     chatController.dispose()
     companionState.dispose()

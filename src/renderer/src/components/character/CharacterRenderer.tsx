@@ -75,7 +75,9 @@ export function CharacterRenderer({
           onComplete={() => onActionComplete(currentAction)}
         />
       ) : null}
-      {action.definition.type === 'animated-image' || action.definition.type === 'live2d' ? (
+      {action.definition.type === 'animated-image' ||
+      action.definition.type === 'live2d' ||
+      action.definition.type === '3d' ? (
         <p className="character-status">Renderer “{action.definition.type}” is not implemented yet.</p>
       ) : null}
       {import.meta.env.DEV && indicator ? (

@@ -1,6 +1,12 @@
 export const IPC_CHANNELS = {
   getAppVersion: 'app:get-version',
   getActiveCharacter: 'characters:get-active',
+  activeCharacterChanged: 'characters:active-changed',
+  openCharacterManager: 'characters:open-manager',
+  getCharacterOverview: 'characters:get-overview',
+  importCharacterPack: 'characters:import-pack',
+  setActiveCharacter: 'characters:set-active',
+  removeCharacterPack: 'characters:remove-pack',
   petDragStateChanged: 'pet:drag-state-changed',
   petMovementCommand: 'pet:movement-command',
   petMovementEdgeReached: 'pet:movement-edge-reached',

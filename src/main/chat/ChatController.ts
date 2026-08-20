@@ -179,6 +179,14 @@ export class ChatController {
     }
   }
 
+  setCharacterName(characterName: string): void {
+    const normalizedName = characterName.trim()
+
+    if (normalizedName && this.state.characterName !== normalizedName) {
+      this.setState({ characterName: normalizedName })
+    }
+  }
+
   async sendMessage(content: string): Promise<ChatSendResult> {
     const normalizedContent = content.trim().slice(0, MAX_MESSAGE_LENGTH)
 

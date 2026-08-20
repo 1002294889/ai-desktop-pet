@@ -1,7 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import { isAIPetActionSequence } from '../shared/ai-pet-action'
-import type { LoadedCharacter } from '../shared/character'
+import { isLoadedCharacter } from '../shared/character'
+import {
+  isCharacterManagerOverview,
+  isCharacterOperationResult
+} from '../shared/character-management'
 import { isChatSendResult, isChatState } from '../shared/chat'
 import {
   isCompanionAutonomousAction,
@@ -30,8 +34,93 @@ import { isPetPointerPosition } from '../shared/pet-pointer-drag'
 
 const desktopApi: DesktopApi = {
   getAppVersion: () => ipcRenderer.invoke(IPC_CHANNELS.getAppVersion) as Promise<string>,
-  getActiveCharacter: () =>
-    ipcRenderer.invoke(IPC_CHANNELS.getActiveCharacter) as Promise<LoadedCharacter>,
+  getActiveCharacter: async () => {
+    const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.getActiveCharacter)
+
+    if (!isLoadedCharacter(result)) {
+      throw new Error('Main process returned an invalid active character')
+    }
+
+    return result
+  },
+  onActiveCharacterChange: (listener) => {
+    const handleActiveCharacterChange = (
+      _event: Electron.IpcRendererEvent,
+      character: unknown
+    ): void => {
+      if (isLoadedCharacter(character)) {
+        listener(character)
+      }
+    }
+
+    ipcRenderer.on(
+      IPC_CHANNELS.activeCharacterChanged,
+      handleActiveCharacterChange
+    )
+
+    return () => {
+      ipcRenderer.removeListener(
+        IPC_CHANNELS.activeCharacterChanged,
+        handleActiveCharacterChange
+      )
+    }
+  },
+  openCharacterManager: () =>
+    ipcRenderer.send(IPC_CHANNELS.openCharacterManager),
+  getCharacterOverview: async () => {
+    const result: unknown = await ipcRenderer.invoke(
+      IPC_CHANNELS.getCharacterOverview
+    )
+
+    if (!isCharacterManagerOverview(result)) {
+      throw new Error('Main process returned an invalid character overview')
+    }
+
+    return result
+  },
+  importCharacterPack: async () => {
+    const result: unknown = await ipcRenderer.invoke(
+      IPC_CHANNELS.importCharacterPack
+    )
+
+    if (!isCharacterOperationResult(result)) {
+      throw new Error('Main process returned an invalid character import result')
+    }
+
+    return result
+  },
+  setActiveCharacter: async (characterId) => {
+    if (typeof characterId !== 'string') {
+      throw new Error('Invalid character ID')
+    }
+
+    const result: unknown = await ipcRenderer.invoke(
+      IPC_CHANNELS.setActiveCharacter,
+      characterId
+    )
+
+    if (!isCharacterOperationResult(result)) {
+      throw new Error('Main process returned an invalid character switch result')
+    }
+
+    return result
+  },
+  removeCharacterPack: async (characterId) => {
+    if (typeof characterId !== 'string') {
+      throw new Error('Invalid character ID')
+    }
+
+    const result: unknown = await ipcRenderer.invoke(
+      IPC_CHANNELS.removeCharacterPack,
+      characterId
+    )
+
+    if (!isCharacterOperationResult(result)) {
+      throw new Error('Main process returned an invalid character removal result')
+    }
+
+    return result
+  },
   onPetDragStateChange: (listener) => {
     const handleDragStateChange = (_event: Electron.IpcRendererEvent, isDragging: unknown): void => {
       if (typeof isDragging === 'boolean') {

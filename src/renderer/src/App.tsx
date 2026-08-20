@@ -100,14 +100,20 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     let isActive = true
+    const applyCharacter = (loadedCharacter: LoadedCharacter): void => {
+      if (!isActive) {
+        return
+      }
+
+      petActionController.playAction('idle', { force: true })
+      setCharacter(loadedCharacter)
+      setLoadError(undefined)
+    }
+    const stopListening = window.desktopApi.onActiveCharacterChange(applyCharacter)
 
     void window.desktopApi
       .getActiveCharacter()
-      .then((loadedCharacter) => {
-        if (isActive) {
-          setCharacter(loadedCharacter)
-        }
-      })
+      .then(applyCharacter)
       .catch((error: unknown) => {
         if (isActive) {
           setLoadError(error instanceof Error ? error.message : 'Unable to load character')
@@ -116,6 +122,7 @@ export function App(): React.JSX.Element {
 
     return () => {
       isActive = false
+      stopListening()
     }
   }, [])
 
@@ -175,6 +182,16 @@ export function App(): React.JSX.Element {
               onClick={() => window.desktopApi.openMemorySettings()}
             >
               Memory
+            </button>
+            <button
+              className="pet-utility-button"
+              type="button"
+              aria-label="Open Character Manager"
+              title="Characters"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => window.desktopApi.openCharacterManager()}
+            >
+              Characters
             </button>
           </div>
         ) : null}

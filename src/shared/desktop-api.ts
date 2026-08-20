@@ -1,4 +1,8 @@
 import type { LoadedCharacter } from './character'
+import type {
+  CharacterManagerOverview,
+  CharacterOperationResult
+} from './character-management'
 import type { AIPetAction } from './ai-pet-action'
 import type { ChatSendResult, ChatState } from './chat'
 import type {
@@ -23,6 +27,14 @@ import type {
 export interface DesktopApi {
   getAppVersion: () => Promise<string>
   getActiveCharacter: () => Promise<LoadedCharacter>
+  onActiveCharacterChange: (
+    listener: (character: LoadedCharacter) => void
+  ) => () => void
+  openCharacterManager: () => void
+  getCharacterOverview: () => Promise<CharacterManagerOverview>
+  importCharacterPack: () => Promise<CharacterOperationResult>
+  setActiveCharacter: (characterId: string) => Promise<CharacterOperationResult>
+  removeCharacterPack: (characterId: string) => Promise<CharacterOperationResult>
   onPetDragStateChange: (listener: (isDragging: boolean) => void) => () => void
   setPetMovement: (direction: PetMovementDirection) => void
   onPetMovementEdge: (listener: (edge: PetMovementEdge) => void) => () => void
