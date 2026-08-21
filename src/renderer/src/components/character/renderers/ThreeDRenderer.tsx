@@ -23,7 +23,11 @@ import type { EmotionSnapshot } from '../../../../../shared/companion-state'
 import type { PetAction } from '../../../../../shared/pet-action'
 import { ProceduralDemoCharacter } from './three-d/ProceduralDemoCharacter'
 import { ThreeDModelCharacter } from './three-d/ThreeDModelCharacter'
-import { DEFAULT_3D_ACTION_DURATIONS_MS } from './three-d/three-d-animation'
+import type { ThreeDModelDiagnostics } from './three-d/ThreeDModelCharacter'
+import {
+  DEFAULT_3D_ACTION_DURATIONS_MS,
+  isDefaultLoopingThreeDAction
+} from './three-d/three-d-animation'
 
 interface ThreeDRendererProps {
   action: LoadedThreeDCharacterAction
@@ -53,6 +57,7 @@ export function ThreeDRenderer({
   const [modelLoadState, setModelLoadState] = useState<
     'loading' | 'ready' | 'error'
   >('ready')
+  const [modelDiagnostics, setModelDiagnostics] = useState<ThreeDModelDiagnostics>()
   const onCompleteRef = useRef(onComplete)
   const { manifest } = character
   const configuration = manifest['3d']
@@ -66,6 +71,11 @@ export function ThreeDRenderer({
     (state: 'loading' | 'ready' | 'error') => setModelLoadState(state),
     []
   )
+  const handleModelDiagnosticsChange = useCallback(
+    (diagnostics: ThreeDModelDiagnostics | undefined) =>
+      setModelDiagnostics(diagnostics),
+    []
+  )
   const viewportStyle = useMemo(
     () => ({ width: `${width}px`, height: `${height}px` }),
     [height, width]
@@ -76,7 +86,16 @@ export function ThreeDRenderer({
   }, [onComplete])
 
   useEffect(() => {
-    if (action.definition.loop ?? false) {
+    const needsRendererFallbackTimer =
+      configuration?.source === 'procedural' ||
+      (configuration?.source === 'model' && modelLoadState === 'error')
+
+    const actionLoops =
+      renderedActionName === requestedActionName
+        ? (action.definition.loop ?? false)
+        : isDefaultLoopingThreeDAction(requestedActionName)
+
+    if (!needsRendererFallbackTimer || actionLoops) {
       return
     }
 
@@ -85,7 +104,15 @@ export function ThreeDRenderer({
     }, durationMs)
 
     return () => window.clearTimeout(completionTimer)
-  }, [action, durationMs, restartKey])
+  }, [
+    action,
+    configuration?.source,
+    durationMs,
+    modelLoadState,
+    renderedActionName,
+    requestedActionName,
+    restartKey
+  ])
 
   if (!configuration) {
     return <p className="character-status">This 3D character is missing renderer configuration.</p>
@@ -95,6 +122,8 @@ export function ThreeDRenderer({
     requestedActionName === renderedActionName
       ? ''
       : `, using ${renderedActionName} fallback`
+  const developmentAnimationDescription =
+    getDevelopmentAnimationDescription(configuration.source, modelDiagnostics)
 
   return (
     <ThreeDRendererErrorBoundary key={character.manifest.id}>
@@ -103,7 +132,16 @@ export function ThreeDRenderer({
         style={viewportStyle}
         data-model-state={modelLoadState}
         data-renderer="three-js"
-        aria-label={`${manifest.name}, ${requestedActionName}${fallbackDescription}, Three.js WebGL renderer`}
+        {...(import.meta.env.DEV
+          ? {
+              'data-animation-mode': modelDiagnostics?.playback?.mode ?? 'none',
+              'data-animation-clip': modelDiagnostics?.playback?.clipName ?? '',
+              'data-loaded-clips': modelDiagnostics?.clipNames.join('|') ?? '',
+              'data-skinned-meshes': modelDiagnostics?.skinnedMeshCount ?? 0,
+              'data-bones': modelDiagnostics?.boneCount ?? 0
+            }
+          : {})}
+        aria-label={`${manifest.name}, ${requestedActionName}${fallbackDescription}, Three.js WebGL renderer${developmentAnimationDescription}`}
       >
         <Canvas
           className="character-3d-canvas"
@@ -167,10 +205,16 @@ export function ThreeDRenderer({
             ) : character.modelUrl ? (
               <ThreeDModelCharacter
                 action={action}
+                animationMappings={manifest.actions}
                 actionName={requestedActionName}
+                renderedActionName={renderedActionName}
                 durationMs={durationMs}
                 emotion={emotion}
                 modelUrl={character.modelUrl}
+                characterId={manifest.id}
+                rootMotion={configuration.rootMotion}
+                onComplete={() => onCompleteRef.current()}
+                onDiagnosticsChange={handleModelDiagnosticsChange}
                 onLoadStateChange={handleModelLoadStateChange}
                 restartKey={restartKey}
               />
@@ -189,6 +233,19 @@ export function ThreeDRenderer({
       </div>
     </ThreeDRendererErrorBoundary>
   )
+}
+
+function getDevelopmentAnimationDescription(
+  source: 'model' | 'procedural',
+  diagnostics: ThreeDModelDiagnostics | undefined
+): string {
+  if (!import.meta.env.DEV || source !== 'model') {
+    return ''
+  }
+
+  const clipName = diagnostics?.playback?.clipName
+
+  return `, ${diagnostics?.skinnedMeshCount ?? 0} skinned meshes, ${diagnostics?.boneCount ?? 0} bones, loaded clips ${diagnostics?.clipNames.join(', ') || 'none'}, playback ${diagnostics?.playback?.mode ?? 'none'}${clipName ? ` ${clipName}` : ''}`
 }
 
 function ThreeDFrameDriver(): null {

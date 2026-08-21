@@ -11,7 +11,8 @@
     "source": "procedural",
     "cameraPosition": [0, 0.25, 5.2],
     "modelPosition": [0, -0.1, 0],
-    "modelRotation": [0, 0, 0]
+    "modelRotation": [0, 0, 0],
+    "rootMotion": "lock-horizontal"
   },
   "actions": {
     "idle": { "type": "3d", "loop": true },

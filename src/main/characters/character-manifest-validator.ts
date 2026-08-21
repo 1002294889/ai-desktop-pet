@@ -10,6 +10,7 @@ import {
   type SpriteCharacterAction,
   type ThreeDCharacterAction,
   type ThreeDCharacterConfiguration,
+  type ThreeDRootMotionMode,
   type ThreeDVector
 } from '../../shared/character'
 
@@ -22,10 +23,12 @@ const MAX_CHARACTER_SCALE = 10
 const MAX_SPRITE_FPS = 120
 const MAX_3D_COORDINATE = 1_000
 const MAX_3D_ACTION_DURATION_MS = 30_000
+const MAX_3D_FADE_DURATION_MS = 2_000
 const MAX_ANIMATION_CLIP_NAME_LENGTH = 120
 const DEFAULT_3D_CAMERA_POSITION: ThreeDVector = [0, 0.6, 4.5]
 const DEFAULT_3D_MODEL_POSITION: ThreeDVector = [0, -0.9, 0]
 const DEFAULT_3D_MODEL_ROTATION: ThreeDVector = [0, 0, 0]
+const DEFAULT_3D_ROOT_MOTION: ThreeDRootMotionMode = 'lock-horizontal'
 const MODEL_EXTENSIONS = ['.glb', '.gltf'] as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -192,6 +195,8 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
 
   if (type === '3d') {
     const durationMs = value.durationMs
+    const fadeDurationMs = value.fadeDurationMs
+    const clampWhenFinished = value.clampWhenFinished
     const clip = readOptionalString(
       value,
       'clip',
@@ -211,11 +216,36 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
       )
     }
 
+    if (
+      fadeDurationMs !== undefined &&
+      (typeof fadeDurationMs !== 'number' ||
+        !Number.isInteger(fadeDurationMs) ||
+        fadeDurationMs < 0 ||
+        fadeDurationMs > MAX_3D_FADE_DURATION_MS)
+    ) {
+      throw new Error(
+        `${actionSource}: "fadeDurationMs" must be an integer from 0 to ${MAX_3D_FADE_DURATION_MS}`
+      )
+    }
+
+    if (
+      clampWhenFinished !== undefined &&
+      typeof clampWhenFinished !== 'boolean'
+    ) {
+      throw new Error(
+        `${actionSource}: "clampWhenFinished" must be a boolean when provided`
+      )
+    }
+
     const action: ThreeDCharacterAction = {
       type,
       ...(loop === undefined ? {} : { loop }),
       ...(clip ? { clip } : {}),
-      ...(typeof durationMs === 'number' ? { durationMs } : {})
+      ...(typeof durationMs === 'number' ? { durationMs } : {}),
+      ...(typeof fadeDurationMs === 'number' ? { fadeDurationMs } : {}),
+      ...(typeof clampWhenFinished === 'boolean'
+        ? { clampWhenFinished }
+        : {})
     }
 
     return action
@@ -257,6 +287,17 @@ function readThreeDConfiguration(
   }
 
   const rendererSource = configuredSource ?? (model ? 'model' : 'procedural')
+  const configuredRootMotion = configuration.rootMotion
+
+  if (
+    configuredRootMotion !== undefined &&
+    configuredRootMotion !== 'lock-horizontal' &&
+    configuredRootMotion !== 'lock-all'
+  ) {
+    throw new Error(
+      `${source}: "3d.rootMotion" must be "lock-horizontal" or "lock-all"`
+    )
+  }
 
   if (rendererSource === 'model' && !model) {
     throw new Error(`${source}: renderer "3d" with source "model" requires "model"`)
@@ -285,7 +326,8 @@ function readThreeDConfiguration(
       'modelRotation',
       `${source}: "3d"`,
       DEFAULT_3D_MODEL_ROTATION
-    )
+    ),
+    rootMotion: configuredRootMotion ?? DEFAULT_3D_ROOT_MOTION
   }
 }
 
@@ -386,6 +428,17 @@ export function validateCharacterManifest(value: unknown, source: string): Chara
 
   const threeDConfiguration =
     renderer === '3d' ? readThreeDConfiguration(value, model, source) : undefined
+
+  if (
+    threeDConfiguration?.source === 'procedural' &&
+    Object.values(actions).some(
+      (action) => action.type === '3d' && action.clip !== undefined
+    )
+  ) {
+    throw new Error(
+      `${source}: procedural 3D characters must not declare skeletal animation clips`
+    )
+  }
 
   return {
     id,

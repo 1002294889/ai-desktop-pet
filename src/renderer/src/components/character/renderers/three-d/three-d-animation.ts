@@ -1,11 +1,5 @@
 import {
-  AnimationAction,
-  AnimationClip,
-  AnimationMixer,
-  LoopOnce,
-  LoopRepeat,
   MathUtils,
-  type Object3D
 } from 'three'
 
 import type { EmotionSnapshot } from '../../../../../../shared/companion-state'
@@ -21,6 +15,18 @@ export const DEFAULT_3D_ACTION_DURATIONS_MS: Readonly<
   wave: 1_450,
   talk: 1_150,
   dragged: 900
+}
+
+const DEFAULT_LOOPING_3D_ACTIONS: ReadonlySet<PetAction> = new Set([
+  'idle',
+  'walk_left',
+  'walk_right',
+  'sit',
+  'sleep'
+])
+
+export function isDefaultLoopingThreeDAction(action: PetAction): boolean {
+  return DEFAULT_LOOPING_3D_ACTIONS.has(action)
 }
 
 export interface ProceduralThreeDPose {
@@ -310,65 +316,6 @@ export function getFacingTarget(action: PetAction): number | undefined {
   return undefined
 }
 
-export class ThreeDSkeletalAnimationAdapter {
-  private readonly mixer: AnimationMixer
-  private activeAction: AnimationAction | undefined
-
-  constructor(
-    private readonly root: Object3D,
-    private readonly clips: readonly AnimationClip[]
-  ) {
-    this.mixer = new AnimationMixer(root)
-  }
-
-  playSemanticAction(
-    action: PetAction,
-    configuredClip: string | undefined,
-    loop: boolean
-  ): boolean {
-    const clip = this.resolveClip(configuredClip ?? action)
-
-    if (!clip) {
-      this.activeAction?.fadeOut(0.12)
-      this.activeAction = undefined
-      return false
-    }
-
-    const nextAction = this.mixer.clipAction(clip)
-
-    if (this.activeAction && this.activeAction !== nextAction) {
-      this.activeAction.fadeOut(0.12)
-    }
-
-    nextAction
-      .reset()
-      .setLoop(loop ? LoopRepeat : LoopOnce, loop ? Number.POSITIVE_INFINITY : 1)
-      .fadeIn(0.12)
-      .play()
-    nextAction.clampWhenFinished = !loop
-    this.activeAction = nextAction
-    return true
-  }
-
-  update(deltaSeconds: number): void {
-    this.mixer.update(deltaSeconds)
-  }
-
-  dispose(): void {
-    this.mixer.stopAllAction()
-    this.mixer.uncacheRoot(this.root)
-    this.activeAction = undefined
-  }
-
-  private resolveClip(name: string): AnimationClip | undefined {
-    const normalizedName = normalizeClipName(name)
-
-    return this.clips.find(
-      (clip) => normalizeClipName(clip.name) === normalizedName
-    )
-  }
-}
-
 function getEmotionEnergy(emotion: EmotionSnapshot | undefined): number {
   if (!emotion) {
     return 1
@@ -417,8 +364,4 @@ function attackRelease(
   const release = smootherStep((1 - progress) / releaseDuration)
 
   return Math.min(attack, release)
-}
-
-function normalizeClipName(name: string): string {
-  return name.trim().toLowerCase().replace(/[\s-]+/g, '_')
 }

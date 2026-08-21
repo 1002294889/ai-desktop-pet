@@ -51,6 +51,8 @@ export interface ThreeDCharacterAction extends CharacterActionBase {
   type: '3d'
   clip?: string
   durationMs?: number
+  fadeDurationMs?: number
+  clampWhenFinished?: boolean
 }
 
 export type CharacterAction =
@@ -64,11 +66,14 @@ export type ThreeDVector = [number, number, number]
 
 export type ThreeDCharacterSource = 'model' | 'procedural'
 
+export type ThreeDRootMotionMode = 'lock-horizontal' | 'lock-all'
+
 export interface ThreeDCharacterConfiguration {
   source: ThreeDCharacterSource
   cameraPosition: ThreeDVector
   modelPosition: ThreeDVector
   modelRotation: ThreeDVector
+  rootMotion: ThreeDRootMotionMode
 }
 
 export interface CharacterManifest {
@@ -188,7 +193,11 @@ function isCharacterAction(value: unknown): value is CharacterAction {
       (value.loop === undefined || typeof value.loop === 'boolean') &&
       (value.clip === undefined || typeof value.clip === 'string') &&
       (value.durationMs === undefined ||
-        (typeof value.durationMs === 'number' && Number.isFinite(value.durationMs)))
+        (typeof value.durationMs === 'number' && Number.isFinite(value.durationMs))) &&
+      (value.fadeDurationMs === undefined ||
+        (typeof value.fadeDurationMs === 'number' && Number.isFinite(value.fadeDurationMs))) &&
+      (value.clampWhenFinished === undefined ||
+        typeof value.clampWhenFinished === 'boolean')
     )
   }
 
@@ -222,7 +231,8 @@ function isThreeDCharacterConfiguration(
     (value.source === 'model' || value.source === 'procedural') &&
     isThreeDVector(value.cameraPosition) &&
     isThreeDVector(value.modelPosition) &&
-    isThreeDVector(value.modelRotation)
+    isThreeDVector(value.modelRotation) &&
+    (value.rootMotion === 'lock-horizontal' || value.rootMotion === 'lock-all')
   )
 }
 

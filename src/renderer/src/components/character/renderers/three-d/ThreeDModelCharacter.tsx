@@ -7,46 +7,79 @@ import {
 } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 import type { EmotionSnapshot } from '../../../../../../shared/companion-state'
-import type { LoadedThreeDCharacterAction } from '../../../../../../shared/character'
+import type {
+  CharacterAction,
+  LoadedThreeDCharacterAction,
+  ThreeDCharacterAction,
+  ThreeDRootMotionMode
+} from '../../../../../../shared/character'
 import type { PetAction } from '../../../../../../shared/pet-action'
 import {
   createProceduralThreeDPose,
   getFacingTarget,
-  ThreeDSkeletalAnimationAdapter
+  isDefaultLoopingThreeDAction
 } from './three-d-animation'
+import {
+  ThreeDAnimationController,
+  type ThreeDAnimationDiagnostics,
+  type ThreeDAnimationPlayback
+} from './ThreeDAnimationController'
 import { disposeThreeDObject } from './three-d-resource-disposal'
 
 interface ThreeDModelCharacterProps {
   action: LoadedThreeDCharacterAction
+  animationMappings: Readonly<Record<string, CharacterAction>>
   actionName: PetAction
   durationMs?: number
   emotion?: EmotionSnapshot
   modelUrl: string
+  characterId: string
+  onComplete: () => void
+  onDiagnosticsChange: (diagnostics: ThreeDModelDiagnostics | undefined) => void
   onLoadStateChange: (state: 'loading' | 'ready' | 'error') => void
+  renderedActionName: string
   restartKey: number
+  rootMotion: ThreeDRootMotionMode
+}
+
+export interface ThreeDModelDiagnostics extends ThreeDAnimationDiagnostics {
+  playback?: ThreeDAnimationPlayback
 }
 
 export function ThreeDModelCharacter({
   action,
+  animationMappings,
   actionName,
   durationMs,
   emotion,
   modelUrl,
+  characterId,
+  onComplete,
+  onDiagnosticsChange,
   onLoadStateChange,
-  restartKey
+  renderedActionName,
+  restartKey,
+  rootMotion
 }: ThreeDModelCharacterProps): React.JSX.Element | null {
   const [model, setModel] = useState<GLTF>()
   const motionRootRef = useRef<Group>(null)
-  const adapterRef = useRef<ThreeDSkeletalAnimationAdapter | undefined>(undefined)
+  const controllerRef = useRef<ThreeDAnimationController | undefined>(undefined)
   const actionTime = useRef(0)
   const facing = useRef(0)
   const isUsingClip = useRef(false)
+  const onCompleteRef = useRef(onComplete)
+  const fallbackTimerRef = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
 
   useEffect(() => {
     let cancelled = false
     let loadedModel: GLTF | undefined
 
     setModel(undefined)
+    onDiagnosticsChange(undefined)
     onLoadStateChange('loading')
 
     new GLTFLoader().load(
@@ -57,6 +90,9 @@ export function ThreeDModelCharacter({
           return
         }
 
+        // GLTFLoader creates a unique scene for this mount. We intentionally do
+        // not place it in a shared cache, so its skeleton and GPU resources have
+        // one clear owner and can be disposed safely when the character changes.
         loadedModel = nextModel
         setModel(nextModel)
         onLoadStateChange('ready')
@@ -76,38 +112,103 @@ export function ThreeDModelCharacter({
         disposeThreeDObject(loadedModel.scene)
       }
     }
-  }, [modelUrl, onLoadStateChange])
+  }, [modelUrl, onDiagnosticsChange, onLoadStateChange])
 
   useEffect(() => {
     if (!model) {
-      adapterRef.current = undefined
+      controllerRef.current = undefined
       return
     }
 
-    const adapter = new ThreeDSkeletalAnimationAdapter(
+    const controller = new ThreeDAnimationController(
       model.scene,
-      model.animations
+      model.animations,
+      rootMotion,
+      animationMappings
     )
-    adapterRef.current = adapter
+    const diagnostics = controller.getDiagnostics()
+
+    controllerRef.current = controller
+    onDiagnosticsChange(diagnostics)
+
+    if (import.meta.env.DEV) {
+      console.info(`[ThreeDAnimation] Loaded clips for "${characterId}":`, [
+        ...diagnostics.clipNames
+      ])
+      console.info(`[ThreeDAnimation] Rig for "${characterId}":`, {
+        skinnedMeshes: diagnostics.skinnedMeshCount,
+        bones: diagnostics.boneCount,
+        neutralizedRootMotionTracks: [...diagnostics.rootMotionTracks],
+        missingMappings: [...diagnostics.missingMappings]
+      })
+    }
 
     return () => {
-      adapter.dispose()
+      controller.dispose()
+      onDiagnosticsChange(undefined)
 
-      if (adapterRef.current === adapter) {
-        adapterRef.current = undefined
+      if (controllerRef.current === controller) {
+        controllerRef.current = undefined
       }
     }
-  }, [model])
+  }, [animationMappings, characterId, model, onDiagnosticsChange, rootMotion])
 
   useEffect(() => {
+    if (fallbackTimerRef.current !== undefined) {
+      window.clearTimeout(fallbackTimerRef.current)
+      fallbackTimerRef.current = undefined
+    }
+
     actionTime.current = 0
-    isUsingClip.current =
-      adapterRef.current?.playSemanticAction(
-        actionName,
-        action.definition.clip,
-        action.definition.loop ?? false
-      ) ?? false
-  }, [action, actionName, model, restartKey])
+    const isConfiguredAction = renderedActionName === actionName
+    const definition: ThreeDCharacterAction = isConfiguredAction
+      ? action.definition
+      : {
+          type: '3d',
+          loop: isDefaultLoopingThreeDAction(actionName),
+          ...(durationMs ? { durationMs } : {})
+        }
+    const controller = controllerRef.current
+
+    if (!controller) {
+      isUsingClip.current = false
+      return
+    }
+
+    const playback = controller.play(
+      actionName,
+      definition,
+      () => onCompleteRef.current()
+    )
+
+    isUsingClip.current = playback.mode === 'clip'
+    onDiagnosticsChange({ ...controller.getDiagnostics(), playback })
+
+    if (
+      playback.mode === 'procedural' &&
+      !(definition.loop ?? isDefaultLoopingThreeDAction(actionName))
+    ) {
+      fallbackTimerRef.current = window.setTimeout(() => {
+        fallbackTimerRef.current = undefined
+        onCompleteRef.current()
+      }, durationMs ?? 1_000)
+    }
+
+    return () => {
+      if (fallbackTimerRef.current !== undefined) {
+        window.clearTimeout(fallbackTimerRef.current)
+        fallbackTimerRef.current = undefined
+      }
+    }
+  }, [
+    action,
+    actionName,
+    durationMs,
+    model,
+    onDiagnosticsChange,
+    renderedActionName,
+    restartKey
+  ])
 
   useFrame((_, delta) => {
     const root = motionRootRef.current
@@ -118,7 +219,7 @@ export function ThreeDModelCharacter({
 
     const safeDelta = Math.min(delta, 0.05)
     actionTime.current += safeDelta
-    adapterRef.current?.update(safeDelta)
+    controllerRef.current?.update(safeDelta)
 
     const pose = createProceduralThreeDPose(
       actionName,

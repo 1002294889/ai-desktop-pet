@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Original rigged 3D test pet preview">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f5f1ff"/>
+      <stop offset="1" stop-color="#ded5fa"/>
+    </linearGradient>
+    <linearGradient id="fur" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop stop-color="#a493e4"/>
+      <stop offset="1" stop-color="#6f59c3"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="38" fill="url(#background)"/>
+  <ellipse cx="120" cy="207" rx="56" ry="13" fill="#5b4a83" opacity=".13"/>
+  <rect x="78" y="28" width="24" height="64" rx="12" fill="url(#fur)"/>
+  <rect x="138" y="28" width="24" height="64" rx="12" fill="url(#fur)"/>
+  <rect x="85" y="34" width="10" height="43" rx="5" fill="#d6a8cf"/>
+  <rect x="145" y="34" width="10" height="43" rx="5" fill="#d6a8cf"/>
+  <circle cx="120" cy="102" r="54" fill="url(#fur)"/>
+  <ellipse cx="120" cy="164" rx="48" ry="55" fill="url(#fur)"/>
+  <ellipse cx="120" cy="166" rx="31" ry="39" fill="#f1ecff"/>
+  <ellipse cx="66" cy="158" rx="15" ry="35" fill="#7a64ca" transform="rotate(12 66 158)"/>
+  <ellipse cx="174" cy="158" rx="15" ry="35" fill="#7a64ca" transform="rotate(-12 174 158)"/>
+  <ellipse cx="94" cy="207" rx="24" ry="14" fill="#6651ba"/>
+  <ellipse cx="146" cy="207" rx="24" ry="14" fill="#6651ba"/>
+  <circle cx="99" cy="98" r="8" fill="#2b2248"/>
+  <circle cx="141" cy="98" r="8" fill="#2b2248"/>
+  <circle cx="102" cy="95" r="2.5" fill="#fff"/>
+  <circle cx="144" cy="95" r="2.5" fill="#fff"/>
+  <ellipse cx="109" cy="117" rx="16" ry="12" fill="#f2edff"/>
+  <ellipse cx="131" cy="117" rx="16" ry="12" fill="#f2edff"/>
+  <ellipse cx="120" cy="111" rx="6" ry="4" fill="#2b2248"/>
+  <path d="M109 124q11 11 22 0" fill="none" stroke="#2b2248" stroke-width="4" stroke-linecap="round"/>
+  <ellipse cx="83" cy="115" rx="8" ry="4" fill="#eaa4c7"/>
+  <ellipse cx="157" cy="115" rx="8" ry="4" fill="#eaa4c7"/>
+  <g fill="#5c4bc0">
+    <circle cx="203" cy="42" r="16"/>
+    <path d="M203 31v22M192 42h22" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>
