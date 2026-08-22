@@ -14,6 +14,11 @@ EXPECTED_ACTIONS = ("RaeJump", "RaeSit", "RaeSleep", "RaeWake")
 def script_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--actions",
+        default=",".join(EXPECTED_ACTIONS),
+        help="Comma-separated Blender Action names to review",
+    )
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(arguments)
 
@@ -49,9 +54,9 @@ def configure_review_scene() -> bpy.types.Scene:
     camera_data = bpy.data.cameras.new("RaeReviewCamera")
     camera = bpy.data.objects.new("RaeReviewCamera", camera_data)
     bpy.context.collection.objects.link(camera)
-    camera.location = (3.8, -7.8, 3.1)
-    camera_data.lens = 62
-    point_at(camera, Vector((0.0, 0.0, 1.15)))
+    camera.location = (0.7, -8.1, 2.7)
+    camera_data.lens = 64
+    point_at(camera, Vector((0.0, 0.0, 1.12)))
     scene.camera = camera
 
     key_data = bpy.data.lights.new("RaeReviewKey", "AREA")
@@ -108,7 +113,13 @@ def main() -> None:
     scene = configure_review_scene()
     armature.animation_data_create()
 
-    for action_name in EXPECTED_ACTIONS:
+    action_names = [
+        name.strip() for name in options.actions.split(",") if name.strip()
+    ]
+    if not action_names:
+        raise RuntimeError("At least one Action must be selected for review")
+
+    for action_name in action_names:
         action = bpy.data.actions.get(action_name)
         if action is None:
             raise RuntimeError(f"Missing Action {action_name}")

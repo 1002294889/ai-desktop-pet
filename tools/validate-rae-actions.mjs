@@ -147,6 +147,8 @@ for (const clipName of expectedClipNames) {
   )
 }
 
+validateSleepWakeContinuity(clipsByName, errors)
+
 const unexpectedClips = animationResource.animations
   .map((clip) => clip.name)
   .filter((name) => !expectedClipNames.includes(name))
@@ -166,6 +168,61 @@ if (errors.length > 0) {
 console.info(
   `Validated ${animationPath} against Rae's ${targetBones.size}-bone runtime rig.`
 )
+
+function validateSleepWakeContinuity(clips, validationErrors) {
+  const sleep = clips.get('RaeSleep')
+  const wake = clips.get('RaeWake')
+  if (!sleep || !wake) {
+    return
+  }
+
+  const wakeTracks = new Map(wake.tracks.map((track) => [track.name, track]))
+  let maximumDelta = 0
+
+  for (const sleepTrack of sleep.tracks) {
+    const wakeTrack = wakeTracks.get(sleepTrack.name)
+    if (!wakeTrack) {
+      validationErrors.push(
+        `RaeWake is missing the sleep endpoint track ${sleepTrack.name}`
+      )
+      continue
+    }
+
+    const itemSize = sleepTrack.getValueSize()
+    if (itemSize !== wakeTrack.getValueSize()) {
+      validationErrors.push(
+        `RaeSleep/RaeWake track size differs for ${sleepTrack.name}`
+      )
+      continue
+    }
+
+    const sleepOffset = sleepTrack.values.length - itemSize
+    let directDelta = 0
+    let flippedDelta = 0
+    for (let index = 0; index < itemSize; index += 1) {
+      const sleepValue = sleepTrack.values[sleepOffset + index]
+      const wakeValue = wakeTrack.values[index]
+      directDelta = Math.max(directDelta, Math.abs(sleepValue - wakeValue))
+      flippedDelta = Math.max(flippedDelta, Math.abs(sleepValue + wakeValue))
+    }
+
+    const delta = sleepTrack.name.endsWith('.quaternion')
+      ? Math.min(directDelta, flippedDelta)
+      : directDelta
+    maximumDelta = Math.max(maximumDelta, delta)
+  }
+
+  if (maximumDelta > 1e-4) {
+    validationErrors.push(
+      `RaeWake does not begin at RaeSleep's final pose (maximum delta ${maximumDelta})`
+    )
+    return
+  }
+
+  console.info(
+    `RaeSleep → RaeWake endpoint continuity: maximum delta ${maximumDelta}`
+  )
+}
 
 async function loadGlb(path) {
   const bytes = await readFile(path)
