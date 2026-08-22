@@ -41,6 +41,11 @@ interface ActiveCompletion {
   semanticAction: string
 }
 
+interface RetiringAction {
+  action: AnimationAction
+  stopAtMixerTime: number
+}
+
 /**
  * Owns the single AnimationMixer for one loaded GLB instance. Manifest clip names
  * are authoritative; this controller deliberately does not guess aliases.
@@ -49,11 +54,11 @@ export class ThreeDAnimationController {
   private readonly mixer: AnimationMixer
   private readonly clips: readonly AnimationClip[]
   private readonly clipsByName: ReadonlyMap<string, AnimationClip>
-  private readonly retiringActions = new Map<AnimationAction, number>()
   private readonly missingClipWarnings = new Set<string>()
   private readonly diagnostics: ThreeDAnimationDiagnostics
   private activeAction: AnimationAction | undefined
   private activeCompletion: ActiveCompletion | undefined
+  private retiringAction: RetiringAction | undefined
   private disposed = false
 
   constructor(
@@ -102,9 +107,10 @@ export class ThreeDAnimationController {
     onFinished: () => void
   ): ThreeDAnimationPlayback {
     const clipName = definition.clip
+    const fadeDurationSeconds = getFadeDurationSeconds(definition)
 
     if (!clipName) {
-      this.beginProceduralFallback()
+      this.beginProceduralFallback(fadeDurationSeconds)
       return {
         mode: 'procedural',
         semanticAction,
@@ -115,7 +121,7 @@ export class ThreeDAnimationController {
     const clip = this.clipsByName.get(clipName)
 
     if (!clip) {
-      this.beginProceduralFallback()
+      this.beginProceduralFallback(fadeDurationSeconds)
       this.warnAboutMissingClip(semanticAction, clipName)
       return {
         mode: 'procedural',
@@ -126,13 +132,26 @@ export class ThreeDAnimationController {
     }
 
     const loop = definition.loop ?? false
-    const fadeDurationSeconds =
-      (definition.fadeDurationMs ?? DEFAULT_FADE_DURATION_MS) / 1_000
     const nextAction = this.mixer.clipAction(clip)
     const previousAction = this.activeAction
 
     this.activeCompletion = undefined
-    this.retiringActions.delete(nextAction)
+
+    if (previousAction === nextAction && loop && nextAction.isRunning()) {
+      nextAction.clampWhenFinished = false
+      nextAction.setLoop(LoopRepeat, Number.POSITIVE_INFINITY)
+      nextAction.setEffectiveTimeScale(1)
+
+      if (import.meta.env.DEV) {
+        console.info(
+          `[ThreeDAnimation] Continuing clip "${clipName}" for semantic action "${semanticAction}" without restarting its loop.`
+        )
+      }
+
+      return { mode: 'clip', semanticAction, clipName }
+    }
+
+    this.stopRetiringAction()
     nextAction
       .reset()
       .setEffectiveTimeScale(1)
@@ -143,11 +162,11 @@ export class ThreeDAnimationController {
 
     if (previousAction && previousAction !== nextAction) {
       if (fadeDurationSeconds > 0) {
-        previousAction.crossFadeTo(nextAction, fadeDurationSeconds, true)
-        this.retiringActions.set(
-          previousAction,
-          this.mixer.time + fadeDurationSeconds
-        )
+        previousAction.crossFadeTo(nextAction, fadeDurationSeconds, false)
+        this.retiringAction = {
+          action: previousAction,
+          stopAtMixerTime: this.mixer.time + fadeDurationSeconds
+        }
       } else {
         previousAction.stop()
       }
@@ -182,11 +201,11 @@ export class ThreeDAnimationController {
 
     this.mixer.update(deltaSeconds)
 
-    for (const [action, stopAt] of this.retiringActions) {
-      if (this.mixer.time >= stopAt) {
-        action.stop()
-        this.retiringActions.delete(action)
-      }
+    if (
+      this.retiringAction &&
+      this.mixer.time >= this.retiringAction.stopAtMixerTime
+    ) {
+      this.stopRetiringAction()
     }
   }
 
@@ -198,7 +217,7 @@ export class ThreeDAnimationController {
     this.disposed = true
     this.mixer.removeEventListener('finished', this.handleMixerFinished)
     this.activeCompletion = undefined
-    this.retiringActions.clear()
+    this.retiringAction = undefined
     this.mixer.stopAllAction()
 
     for (const clip of this.clips) {
@@ -229,19 +248,33 @@ export class ThreeDAnimationController {
     completion.callback()
   }
 
-  private beginProceduralFallback(): void {
+  private beginProceduralFallback(fadeDurationSeconds: number): void {
     this.activeCompletion = undefined
+    this.stopRetiringAction()
 
     if (this.activeAction) {
-      this.activeAction.stop()
+      const previousAction = this.activeAction
       this.activeAction = undefined
+
+      if (fadeDurationSeconds > 0 && previousAction.isRunning()) {
+        previousAction.fadeOut(fadeDurationSeconds)
+        this.retiringAction = {
+          action: previousAction,
+          stopAtMixerTime: this.mixer.time + fadeDurationSeconds
+        }
+      } else {
+        previousAction.stop()
+      }
+    }
+  }
+
+  private stopRetiringAction(): void {
+    if (!this.retiringAction) {
+      return
     }
 
-    for (const action of this.retiringActions.keys()) {
-      action.stop()
-    }
-
-    this.retiringActions.clear()
+    this.retiringAction.action.stop()
+    this.retiringAction = undefined
   }
 
   private warnAboutMissingClip(semanticAction: string, clipName: string): void {
@@ -256,6 +289,13 @@ export class ThreeDAnimationController {
       `[ThreeDAnimation] Missing clip "${clipName}" for semantic action "${semanticAction}"; using procedural fallback.`
     )
   }
+}
+
+function getFadeDurationSeconds(definition: ThreeDCharacterAction): number {
+  return Math.max(
+    0,
+    definition.fadeDurationMs ?? DEFAULT_FADE_DURATION_MS
+  ) / 1_000
 }
 
 function inspectRig(root: Object3D): {
