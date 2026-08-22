@@ -2,7 +2,7 @@
   "id": "three-skeletal-demo",
   "name": "Rigged 3D Test Pet",
   "renderer": "3d",
-  "version": 3,
+  "version": 4,
   "defaultWidth": 250,
   "defaultHeight": 270,
   "scale": 0.86,

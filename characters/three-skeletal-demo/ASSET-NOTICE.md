@@ -7,9 +7,11 @@ It contains no downloaded character model, texture, motion-capture data, or
 third-party character design. It is intentionally simple and exists only to
 verify the application's GLB, SkinnedMesh, skeleton, and AnimationClip pipeline.
 Its development skeleton includes articulated ears plus explicit shoulder,
-upper/lower arm, hand, upper/lower leg, and foot joints. Limb geometry blends
-across adjacent joints so shoulders, elbows, wrists, hips, knees, and ankles can
-be visually inspected without relying on downloaded production assets.
+upper/lower arm, hand, upper/lower leg, and foot joints. Tapered lathed limbs
+blend across adjacent joints, while the original mitten-style forepaws and
+multi-lobed grounded hind paws avoid relying on uniform capsule or sphere
+silhouettes. Shoulders, elbows, wrists, hips, knees, and ankles can therefore be
+visually inspected without downloaded production assets.
 
 The generated clips are: Idle, Walk, Sit, Sleep, Wake, Happy, Angry, Jump, Wave,
 and Talk. Sit, Sleep, Jump, and Wave include deliberately articulated full-limb
