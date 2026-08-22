@@ -8,7 +8,7 @@ import {
 
 import type { EmotionSnapshot } from '../../../../../../shared/companion-state'
 import type {
-  CharacterAction,
+  LoadedCharacterAction,
   LoadedThreeDCharacterAction,
   ThreeDCharacterAction,
   ThreeDLookAtConfiguration,
@@ -25,6 +25,7 @@ import {
   type ThreeDAnimationDiagnostics,
   type ThreeDAnimationPlayback
 } from './ThreeDAnimationController'
+import { ThreeDAnimationLibrary } from './ThreeDAnimationLibrary'
 import {
   ThreeDLookAtController,
   type ThreeDCursorAttentionTarget,
@@ -34,7 +35,7 @@ import { disposeThreeDObject } from './three-d-resource-disposal'
 
 interface ThreeDModelCharacterProps {
   action: LoadedThreeDCharacterAction
-  animationMappings: Readonly<Record<string, CharacterAction>>
+  animationMappings: Readonly<Record<string, LoadedCharacterAction>>
   actionName: PetAction
   durationMs?: number
   emotion?: EmotionSnapshot
@@ -73,12 +74,14 @@ export function ThreeDModelCharacter({
   rootMotion
 }: ThreeDModelCharacterProps): React.JSX.Element | null {
   const [model, setModel] = useState<GLTF>()
+  const [animationRuntimeVersion, setAnimationRuntimeVersion] = useState(0)
   const motionRootRef = useRef<Group>(null)
   const controllerRef = useRef<ThreeDAnimationController | undefined>(undefined)
   const lookAtControllerRef = useRef<ThreeDLookAtController | undefined>(undefined)
   const actionTime = useRef(0)
   const facing = useRef(0)
   const isUsingClip = useRef(false)
+  const lookAtWeight = useRef<number | undefined>(undefined)
   const onCompleteRef = useRef(onComplete)
   const fallbackTimerRef = useRef<number | undefined>(undefined)
 
@@ -107,7 +110,6 @@ export function ThreeDModelCharacter({
         // one clear owner and can be disposed safely when the character changes.
         loadedModel = nextModel
         setModel(nextModel)
-        onLoadStateChange('ready')
       },
       undefined,
       () => {
@@ -132,45 +134,76 @@ export function ThreeDModelCharacter({
       return
     }
 
-    const controller = new ThreeDAnimationController(
-      model.scene,
-      model.animations,
-      rootMotion,
-      animationMappings
-    )
-    const lookAtController = new ThreeDLookAtController(model.scene, lookAt)
-    const diagnostics = {
-      ...controller.getDiagnostics(),
-      lookAt: lookAtController.getDiagnostics()
-    }
+    let cancelled = false
+    let controller: ThreeDAnimationController | undefined
+    let lookAtController: ThreeDLookAtController | undefined
+    const library = new ThreeDAnimationLibrary(model.scene, animationMappings)
 
-    controllerRef.current = controller
-    lookAtControllerRef.current = lookAtController
-    onDiagnosticsChange(diagnostics)
+    setAnimationRuntimeVersion(0)
+    onLoadStateChange('loading')
 
-    if (import.meta.env.DEV) {
-      console.info(`[ThreeDAnimation] Loaded clips for "${characterId}":`, [
-        ...diagnostics.clipNames
-      ])
-      console.info(`[ThreeDAnimation] Rig for "${characterId}":`, {
-        skinnedMeshes: diagnostics.skinnedMeshCount,
-        bones: diagnostics.boneCount,
-        neutralizedRootMotionTracks: [...diagnostics.rootMotionTracks],
-        missingMappings: [...diagnostics.missingMappings],
-        lookAt: diagnostics.lookAt
-      })
-    }
+    void library.load().then((externalLibrary) => {
+      if (cancelled) {
+        return
+      }
+
+      const configuredDefinitions = Object.fromEntries(
+        Object.entries(animationMappings).map(([semanticAction, loadedAction]) => [
+          semanticAction,
+          loadedAction.definition
+        ])
+      )
+
+      controller = new ThreeDAnimationController(
+        model.scene,
+        model.animations,
+        rootMotion,
+        configuredDefinitions,
+        externalLibrary
+      )
+      lookAtController = new ThreeDLookAtController(model.scene, lookAt)
+      const diagnostics = {
+        ...controller.getDiagnostics(),
+        lookAt: lookAtController.getDiagnostics()
+      }
+
+      controllerRef.current = controller
+      lookAtControllerRef.current = lookAtController
+      onDiagnosticsChange(diagnostics)
+      setAnimationRuntimeVersion((version) => version + 1)
+      onLoadStateChange('ready')
+
+      if (import.meta.env.DEV) {
+        console.info(`[ThreeDAnimation] Loaded clips for "${characterId}":`, {
+          embedded: [...diagnostics.clipNames],
+          external: [...diagnostics.externalClipNames]
+        })
+        console.info(`[ThreeDAnimation] Rig for "${characterId}":`, {
+          skinnedMeshes: diagnostics.skinnedMeshCount,
+          bones: diagnostics.boneCount,
+          neutralizedRootMotionTracks: [...diagnostics.rootMotionTracks],
+          missingMappings: [...diagnostics.missingMappings],
+          retargetedTracks: [...diagnostics.retargetedTracks],
+          droppedRetargetTracks: [...diagnostics.droppedRetargetTracks],
+          missingRetargetBones: [...diagnostics.missingRetargetBones],
+          externalErrors: [...diagnostics.externalErrors],
+          lookAt: diagnostics.lookAt
+        })
+      }
+    })
 
     return () => {
-      lookAtController.dispose()
-      controller.dispose()
+      cancelled = true
+      library.dispose()
+      lookAtController?.dispose()
+      controller?.dispose()
       onDiagnosticsChange(undefined)
 
-      if (controllerRef.current === controller) {
+      if (controller && controllerRef.current === controller) {
         controllerRef.current = undefined
       }
 
-      if (lookAtControllerRef.current === lookAtController) {
+      if (lookAtController && lookAtControllerRef.current === lookAtController) {
         lookAtControllerRef.current = undefined
       }
     }
@@ -192,6 +225,7 @@ export function ThreeDModelCharacter({
           ...(durationMs ? { durationMs } : {})
         }
     const controller = controllerRef.current
+    lookAtWeight.current = definition.lookAtWeight
 
     if (!controller) {
       isUsingClip.current = false
@@ -231,7 +265,7 @@ export function ThreeDModelCharacter({
     action,
     actionName,
     durationMs,
-    model,
+    animationRuntimeVersion,
     onDiagnosticsChange,
     renderedActionName,
     restartKey
@@ -272,7 +306,12 @@ export function ThreeDModelCharacter({
       root.scale.setScalar(pose.rootScale)
     }
 
-    lookAtControllerRef.current?.update(safeDelta, attentionTarget, actionName)
+    lookAtControllerRef.current?.update(
+      safeDelta,
+      attentionTarget,
+      actionName,
+      lookAtWeight.current
+    )
   })
 
   return model ? (

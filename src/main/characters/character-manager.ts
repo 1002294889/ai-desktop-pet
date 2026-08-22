@@ -530,7 +530,10 @@ export class CharacterManager {
         }
       case '3d':
         return {
-          definition
+          definition,
+          ...(definition.source
+            ? { animationUrl: this.createAssetUrl(characterId, definition.source) }
+            : {})
         }
     }
   }
@@ -725,7 +728,16 @@ function validateRenderableAssetTypes(manifest: CharacterManifest): void {
   }
 
   for (const [actionName, action] of Object.entries(manifest.actions)) {
-    if (action.type === 'live2d' || action.type === '3d') {
+    if (action.type === 'live2d') {
+      continue
+    }
+
+    if (action.type === '3d') {
+      if (action.source && extname(action.source).toLowerCase() !== '.glb') {
+        throw new Error(
+          `Action "${actionName}" external animations must use a self-contained .glb file`
+        )
+      }
       continue
     }
 
@@ -744,7 +756,7 @@ function getActionAssetPaths(action: CharacterAction): string[] {
     case 'sprite':
       return action.frames
     case '3d':
-      return []
+      return action.source ? [action.source] : []
     default:
       return [action.asset]
   }

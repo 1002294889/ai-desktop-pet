@@ -8,6 +8,7 @@ import {
   type CharacterManifest,
   type CharacterRendererType,
   type SpriteCharacterAction,
+  type ThreeDAnimationRetargetConfiguration,
   type ThreeDCharacterAction,
   type ThreeDCharacterConfiguration,
   type ThreeDLookAtConfiguration,
@@ -27,6 +28,7 @@ const MAX_3D_ACTION_DURATION_MS = 30_000
 const MAX_3D_FADE_DURATION_MS = 2_000
 const MAX_ANIMATION_CLIP_NAME_LENGTH = 120
 const MAX_BONE_NAME_LENGTH = 120
+const MAX_RETARGET_BONES = 128
 const DEFAULT_3D_CAMERA_POSITION: ThreeDVector = [0, 0.6, 4.5]
 const DEFAULT_3D_MODEL_POSITION: ThreeDVector = [0, -0.9, 0]
 const DEFAULT_3D_MODEL_ROTATION: ThreeDVector = [0, 0, 0]
@@ -205,6 +207,32 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
       actionSource,
       MAX_ANIMATION_CLIP_NAME_LENGTH
     )
+    const externalSourceValue = readOptionalString(
+      value,
+      'source',
+      actionSource,
+      MAX_ASSET_PATH_LENGTH
+    )
+    const externalSource = externalSourceValue
+      ? validateAssetPath(externalSourceValue, 'source', actionSource)
+      : undefined
+    const retarget = readOptionalThreeDRetargetConfiguration(
+      value.retarget,
+      `${actionSource}: "retarget"`
+    )
+    const lookAtWeight = value.lookAtWeight
+
+    if (externalSource && !externalSource.toLowerCase().endsWith('.glb')) {
+      throw new Error(`${actionSource}: external animation "source" must reference a .glb file`)
+    }
+
+    if (externalSource && !clip) {
+      throw new Error(`${actionSource}: external animation "source" requires "clip"`)
+    }
+
+    if (retarget && !externalSource) {
+      throw new Error(`${actionSource}: "retarget" requires an external animation "source"`)
+    }
 
     if (
       durationMs !== undefined &&
@@ -239,15 +267,28 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
       )
     }
 
+    if (
+      lookAtWeight !== undefined &&
+      (typeof lookAtWeight !== 'number' ||
+        !Number.isFinite(lookAtWeight) ||
+        lookAtWeight < 0 ||
+        lookAtWeight > 1)
+    ) {
+      throw new Error(`${actionSource}: "lookAtWeight" must be a number from 0 to 1`)
+    }
+
     const action: ThreeDCharacterAction = {
       type,
       ...(loop === undefined ? {} : { loop }),
       ...(clip ? { clip } : {}),
+      ...(externalSource ? { source: externalSource } : {}),
+      ...(retarget ? { retarget } : {}),
       ...(typeof durationMs === 'number' ? { durationMs } : {}),
       ...(typeof fadeDurationMs === 'number' ? { fadeDurationMs } : {}),
       ...(typeof clampWhenFinished === 'boolean'
         ? { clampWhenFinished }
-        : {})
+        : {}),
+      ...(typeof lookAtWeight === 'number' ? { lookAtWeight } : {})
     }
 
     return action
@@ -264,6 +305,45 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
     asset,
     ...(loop === undefined ? {} : { loop })
   }
+}
+
+function readOptionalThreeDRetargetConfiguration(
+  value: unknown,
+  source: string
+): ThreeDAnimationRetargetConfiguration | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (!isRecord(value) || !isRecord(value.boneMap)) {
+    throw new Error(`${source} must contain a "boneMap" object`)
+  }
+
+  const entries = Object.entries(value.boneMap)
+
+  if (entries.length === 0 || entries.length > MAX_RETARGET_BONES) {
+    throw new Error(`${source}: "boneMap" must contain 1 to ${MAX_RETARGET_BONES} entries`)
+  }
+
+  const boneMap = Object.fromEntries(
+    entries.map(([sourceBone, targetBone]) => {
+      if (
+        !sourceBone.trim() ||
+        sourceBone.length > MAX_BONE_NAME_LENGTH ||
+        typeof targetBone !== 'string' ||
+        !targetBone.trim() ||
+        targetBone.length > MAX_BONE_NAME_LENGTH
+      ) {
+        throw new Error(
+          `${source}: bone names must be non-empty strings up to ${MAX_BONE_NAME_LENGTH} characters`
+        )
+      }
+
+      return [sourceBone.trim(), targetBone.trim()]
+    })
+  )
+
+  return { boneMap }
 }
 
 function readThreeDConfiguration(
@@ -483,7 +563,9 @@ export function validateCharacterManifest(value: unknown, source: string): Chara
   if (
     threeDConfiguration?.source === 'procedural' &&
     Object.values(actions).some(
-      (action) => action.type === '3d' && action.clip !== undefined
+      (action) =>
+        action.type === '3d' &&
+        (action.clip !== undefined || action.source !== undefined)
     )
   ) {
     throw new Error(

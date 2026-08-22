@@ -94,9 +94,12 @@ export class ThreeDLookAtController {
   update(
     deltaSeconds: number,
     target: ThreeDCursorAttentionTarget,
-    action: PetAction
+    action: PetAction,
+    configuredWeight?: number
   ): void {
-    const actionWeight = target.active ? getActionTrackingWeight(action) : 0
+    const actionWeight = target.active
+      ? MathUtils.clamp(configuredWeight ?? getActionTrackingWeight(action), 0, 1)
+      : 0
     const targetX = MathUtils.clamp(target.x, -1, 1) * actionWeight
     const targetY = MathUtils.clamp(target.y, -1, 1) * actionWeight
 

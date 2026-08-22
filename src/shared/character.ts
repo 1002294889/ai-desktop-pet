@@ -50,9 +50,16 @@ export interface Live2DCharacterAction extends CharacterActionBase {
 export interface ThreeDCharacterAction extends CharacterActionBase {
   type: '3d'
   clip?: string
+  source?: string
+  retarget?: ThreeDAnimationRetargetConfiguration
   durationMs?: number
   fadeDurationMs?: number
   clampWhenFinished?: boolean
+  lookAtWeight?: number
+}
+
+export interface ThreeDAnimationRetargetConfiguration {
+  boneMap: Record<string, string>
 }
 
 export type CharacterAction =
@@ -119,6 +126,7 @@ export interface LoadedLive2DCharacterAction {
 
 export interface LoadedThreeDCharacterAction {
   definition: ThreeDCharacterAction
+  animationUrl?: string
 }
 
 export type LoadedCharacterAction =
@@ -196,15 +204,27 @@ function isCharacterAction(value: unknown): value is CharacterAction {
   }
 
   if (value.type === '3d') {
+    const hasExternalSource = typeof value.source === 'string'
+    const hasClip = typeof value.clip === 'string'
+
     return (
       (value.loop === undefined || typeof value.loop === 'boolean') &&
       (value.clip === undefined || typeof value.clip === 'string') &&
+      (value.source === undefined || typeof value.source === 'string') &&
+      (!hasExternalSource || hasClip) &&
+      (value.retarget === undefined || hasExternalSource) &&
+      (value.retarget === undefined || isThreeDAnimationRetargetConfiguration(value.retarget)) &&
       (value.durationMs === undefined ||
         (typeof value.durationMs === 'number' && Number.isFinite(value.durationMs))) &&
       (value.fadeDurationMs === undefined ||
         (typeof value.fadeDurationMs === 'number' && Number.isFinite(value.fadeDurationMs))) &&
       (value.clampWhenFinished === undefined ||
-        typeof value.clampWhenFinished === 'boolean')
+        typeof value.clampWhenFinished === 'boolean') &&
+      (value.lookAtWeight === undefined ||
+        (typeof value.lookAtWeight === 'number' &&
+          Number.isFinite(value.lookAtWeight) &&
+          value.lookAtWeight >= 0 &&
+          value.lookAtWeight <= 1))
     )
   }
 
@@ -224,7 +244,33 @@ function isLoadedCharacterAction(value: unknown): value is LoadedCharacterAction
     )
   }
 
-  return value.definition.type === '3d' || typeof value.assetUrl === 'string'
+  if (value.definition.type === '3d') {
+    return value.definition.source === undefined
+      ? value.animationUrl === undefined
+      : typeof value.animationUrl === 'string'
+  }
+
+  return typeof value.assetUrl === 'string'
+}
+
+function isThreeDAnimationRetargetConfiguration(
+  value: unknown
+): value is ThreeDAnimationRetargetConfiguration {
+  if (!isRecord(value) || !isRecord(value.boneMap)) {
+    return false
+  }
+
+  const entries = Object.entries(value.boneMap)
+
+  return (
+    entries.length > 0 &&
+    entries.every(
+      ([sourceBone, targetBone]) =>
+        sourceBone.trim().length > 0 &&
+        typeof targetBone === 'string' &&
+        targetBone.trim().length > 0
+    )
+  )
 }
 
 function isThreeDCharacterConfiguration(

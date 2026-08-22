@@ -16,10 +16,14 @@ import type {
   ThreeDCharacterAction,
   ThreeDRootMotionMode
 } from '../../../../../../shared/character'
+import type {
+  LoadedThreeDAnimationLibrary,
+  ThreeDAnimationLibraryDiagnostics
+} from './ThreeDAnimationLibrary'
 
 const DEFAULT_FADE_DURATION_MS = 140
 
-export interface ThreeDAnimationDiagnostics {
+export interface ThreeDAnimationDiagnostics extends ThreeDAnimationLibraryDiagnostics {
   clipNames: readonly string[]
   rootMotionTracks: readonly string[]
   missingMappings: readonly string[]
@@ -31,7 +35,11 @@ export interface ThreeDAnimationPlayback {
   mode: 'clip' | 'procedural'
   semanticAction: string
   clipName?: string
-  fallbackReason?: 'clip-not-configured' | 'clip-not-found'
+  clipSource?: 'embedded' | 'external'
+  fallbackReason?:
+    | 'clip-not-configured'
+    | 'clip-not-found'
+    | 'external-clip-not-loaded'
 }
 
 interface ActiveCompletion {
@@ -54,6 +62,7 @@ export class ThreeDAnimationController {
   private readonly mixer: AnimationMixer
   private readonly clips: readonly AnimationClip[]
   private readonly clipsByName: ReadonlyMap<string, AnimationClip>
+  private readonly externalClipsByAction: ReadonlyMap<string, AnimationClip>
   private readonly missingClipWarnings = new Set<string>()
   private readonly diagnostics: ThreeDAnimationDiagnostics
   private activeAction: AnimationAction | undefined
@@ -65,27 +74,48 @@ export class ThreeDAnimationController {
     private readonly root: Object3D,
     sourceClips: readonly AnimationClip[],
     rootMotion: ThreeDRootMotionMode,
-    configuredActions: Readonly<Record<string, CharacterAction>>
+    configuredActions: Readonly<Record<string, CharacterAction>>,
+    externalLibrary: LoadedThreeDAnimationLibrary = EMPTY_EXTERNAL_LIBRARY
   ) {
     const prepared = prepareAnimationClips(root, sourceClips, rootMotion)
+    const preparedExternal = new Map<string, AnimationClip>()
+    const externalRootMotionTracks: string[] = []
+
+    for (const [semanticAction, sourceClip] of externalLibrary.clipsBySemanticAction) {
+      const external = prepareAnimationClips(root, [sourceClip], rootMotion)
+      const clip = external.clips[0]
+
+      if (clip) {
+        preparedExternal.set(semanticAction, clip)
+      }
+      externalRootMotionTracks.push(...external.rootMotionTracks)
+    }
+
     const rig = inspectRig(root)
 
-    this.clips = prepared.clips
-    this.clipsByName = new Map(this.clips.map((clip) => [clip.name, clip]))
+    this.clips = [...prepared.clips, ...preparedExternal.values()]
+    this.clipsByName = new Map(prepared.clips.map((clip) => [clip.name, clip]))
+    this.externalClipsByAction = preparedExternal
     const missingMappings = Object.entries(configuredActions).flatMap(
       ([semanticAction, definition]) =>
         definition.type === '3d' &&
         definition.clip &&
-        !this.clipsByName.has(definition.clip)
+        (definition.source
+          ? !this.externalClipsByAction.has(semanticAction)
+          : !this.clipsByName.has(definition.clip))
           ? [`${semanticAction}:${definition.clip}`]
           : []
     )
     this.diagnostics = {
-      clipNames: this.clips.map((clip) => clip.name),
-      rootMotionTracks: prepared.rootMotionTracks,
+      clipNames: prepared.clips.map((clip) => clip.name),
+      rootMotionTracks: [
+        ...prepared.rootMotionTracks,
+        ...externalRootMotionTracks
+      ],
       missingMappings,
       skinnedMeshCount: rig.skinnedMeshCount,
-      boneCount: rig.boneCount
+      boneCount: rig.boneCount,
+      ...externalLibrary.diagnostics
     }
     this.mixer = new AnimationMixer(root)
     this.mixer.addEventListener('finished', this.handleMixerFinished)
@@ -118,7 +148,10 @@ export class ThreeDAnimationController {
       }
     }
 
-    const clip = this.clipsByName.get(clipName)
+    const clipSource = definition.source ? 'external' : 'embedded'
+    const clip = definition.source
+      ? this.externalClipsByAction.get(semanticAction)
+      : this.clipsByName.get(clipName)
 
     if (!clip) {
       this.beginProceduralFallback(fadeDurationSeconds)
@@ -127,7 +160,9 @@ export class ThreeDAnimationController {
         mode: 'procedural',
         semanticAction,
         clipName,
-        fallbackReason: 'clip-not-found'
+        fallbackReason: definition.source
+          ? 'external-clip-not-loaded'
+          : 'clip-not-found'
       }
     }
 
@@ -148,7 +183,7 @@ export class ThreeDAnimationController {
         )
       }
 
-      return { mode: 'clip', semanticAction, clipName }
+      return { mode: 'clip', semanticAction, clipName, clipSource }
     }
 
     this.stopRetiringAction()
@@ -187,11 +222,11 @@ export class ThreeDAnimationController {
     if (import.meta.env.DEV) {
       console.info(
         `[ThreeDAnimation] Playing clip "${clipName}" for semantic action "${semanticAction}".`,
-        { loop, fadeDurationMs: fadeDurationSeconds * 1_000 }
+        { loop, clipSource, fadeDurationMs: fadeDurationSeconds * 1_000 }
       )
     }
 
-    return { mode: 'clip', semanticAction, clipName }
+    return { mode: 'clip', semanticAction, clipName, clipSource }
   }
 
   update(deltaSeconds: number): void {
@@ -288,6 +323,18 @@ export class ThreeDAnimationController {
     console.info(
       `[ThreeDAnimation] Missing clip "${clipName}" for semantic action "${semanticAction}"; using procedural fallback.`
     )
+  }
+}
+
+const EMPTY_EXTERNAL_LIBRARY: LoadedThreeDAnimationLibrary = {
+  clipsBySemanticAction: new Map(),
+  diagnostics: {
+    externalClipNames: [],
+    externalSources: [],
+    retargetedTracks: [],
+    droppedRetargetTracks: [],
+    missingRetargetBones: [],
+    externalErrors: []
   }
 }
 

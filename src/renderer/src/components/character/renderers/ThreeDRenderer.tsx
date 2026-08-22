@@ -192,7 +192,10 @@ export function ThreeDRenderer({
           ? {
               'data-animation-mode': modelDiagnostics?.playback?.mode ?? 'none',
               'data-animation-clip': modelDiagnostics?.playback?.clipName ?? '',
+              'data-animation-source': modelDiagnostics?.playback?.clipSource ?? '',
               'data-loaded-clips': modelDiagnostics?.clipNames.join('|') ?? '',
+              'data-external-clips': modelDiagnostics?.externalClipNames.join('|') ?? '',
+              'data-animation-errors': modelDiagnostics?.externalErrors.join('|') ?? '',
               'data-skinned-meshes': modelDiagnostics?.skinnedMeshCount ?? 0,
               'data-bones': modelDiagnostics?.boneCount ?? 0,
               'data-look-at-head': modelDiagnostics?.lookAt?.headBone ?? '',
@@ -265,7 +268,7 @@ export function ThreeDRenderer({
             ) : character.modelUrl ? (
               <ThreeDModelCharacter
                 action={action}
-                animationMappings={manifest.actions}
+                animationMappings={character.actions}
                 actionName={requestedActionName}
                 renderedActionName={renderedActionName}
                 durationMs={durationMs}
@@ -306,6 +309,7 @@ function getDevelopmentAnimationDescription(
   }
 
   const clipName = diagnostics?.playback?.clipName
+  const clipSource = diagnostics?.playback?.clipSource
   const lookAtBones = [
     diagnostics?.lookAt?.headBone,
     diagnostics?.lookAt?.leftEyeBone,
@@ -315,7 +319,7 @@ function getDevelopmentAnimationDescription(
     ? `, look-at bones ${lookAtBones.join(', ') || 'none'}`
     : ', look-at disabled'
 
-  return `, ${diagnostics?.skinnedMeshCount ?? 0} skinned meshes, ${diagnostics?.boneCount ?? 0} bones, loaded clips ${diagnostics?.clipNames.join(', ') || 'none'}, playback ${diagnostics?.playback?.mode ?? 'none'}${clipName ? ` ${clipName}` : ''}${lookAtDescription}`
+  return `, ${diagnostics?.skinnedMeshCount ?? 0} skinned meshes, ${diagnostics?.boneCount ?? 0} bones, loaded clips ${diagnostics?.clipNames.join(', ') || 'none'}, external clips ${diagnostics?.externalClipNames.join(', ') || 'none'}, playback ${diagnostics?.playback?.mode ?? 'none'}${clipSource ? ` ${clipSource}` : ''}${clipName ? ` ${clipName}` : ''}${lookAtDescription}`
 }
 
 function ThreeDFrameDriver(): null {
