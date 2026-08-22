@@ -15,6 +15,11 @@ import {
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
+// TEMPORARY DEVELOPMENT FALLBACK ONLY.
+// Final Rae actions are authored against the real armature in Blender. This
+// generator deliberately writes a disposable preview file so it cannot
+// overwrite the Character Pack's Blender-authored runtime asset slot.
+
 class NodeFileReader {
   result = null
   onerror = null
@@ -50,7 +55,7 @@ globalThis.createImageBitmap ??= async () => ({
 
 const modelPath = resolve('characters/rae-red-panda/assets/rae-red-panda.glb')
 const outputPath = resolve(
-  'characters/rae-red-panda/assets/animations/rae-actions.glb'
+  'characters/rae-red-panda/assets/animations/rae-actions.temporary.glb'
 )
 const REQUIRED_BONES = [
   'Root',

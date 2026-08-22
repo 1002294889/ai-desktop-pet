@@ -27,11 +27,17 @@ The visible character mesh contains 5,684 triangles. The GLB contains one
 embedded animation clips. The unused pistol geometry remains in the binary for
 source-layout stability but is not instantiated or rendered.
 
-`assets/animations/rae-actions.glb` is an original motion-only asset generated
-for this repository by `tools/generate-rae-actions.mjs`. It contains
-target-rig skeletal clips for jump, sit, sleep, and wake; it contains no mesh,
-material, or texture. The sleep clip includes a subtle breathing loop and the
-wake clip begins from the exact sleeping pose before unfolding to idle.
+`assets/animations/rae-actions.glb` currently contains the repository's
+temporary development clips for jump, sit, sleep, and wake. Those clips were
+generated against Rae's target rig by `tools/generate-rae-actions.mjs`; they
+are not considered finished animation. The generator now writes only the
+ignored `rae-actions.temporary.glb` preview so it cannot overwrite an
+artist-authored runtime asset.
+
+The permanent runtime slot is still `assets/animations/rae-actions.glb`.
+Following `blender/README.md`, a Blender-authored animation-only GLB can replace
+that file without changing `character.json` or any animation runtime code. The
+required clip names are `RaeJump`, `RaeSit`, `RaeSleep`, and `RaeWake`.
 
 `assets/animations/celebrate.glb` and `groove-a-pose.glb` are original CC0
 development motion assets from this repository. They are loaded only as
