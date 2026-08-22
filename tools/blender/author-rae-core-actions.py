@@ -244,53 +244,109 @@ def author_jump(armature: bpy.types.Object, sources: dict[str, bpy.types.Action]
         for frame in (0, 3, 6, 8.8)
     ]
 
-    # Amplify the authored compression and airborne silhouette without relying
-    # on root translation alone. All adjustments are pose-bone local offsets.
+    # Preserve the source rig's useful leg compression, then author a cleaner
+    # center-of-mass arc and symmetric arm silhouettes around it. The airborne
+    # poses deliberately avoid Jump_Idle's forward-reaching hand.
+    preparation = adjusted_pose(
+        blend_pose(idle, jump[1], 0.48),
+        rotations={"Torso": (5, 0, 0), "Head": (-3, 0, 0)},
+        locations={"Body": (0, -0.055, 0.008)},
+    )
     anticipation = adjusted_pose(
         jump[1],
         rotations={
-            "Torso": (12, 0, 0),
-            "Head": (-7, 0, 0),
-            "UpperArm.L": (6, 0, 6),
-            "UpperArm.R": (6, 0, -6),
-            "LowerArm.L": (5, 0, 8),
-            "LowerArm.R": (5, 0, -8),
+            "Torso": (15, 0, 0),
+            "Head": (-9, 0, 0),
+            "UpperLeg.L": (-7, 0, -2),
+            "UpperLeg.R": (-7, 0, 2),
+            "LowerLeg.L": (10, 0, 2),
+            "LowerLeg.R": (10, 0, -2),
         },
-        locations={"Body": (0, -0.13, 0.015)},
+        locations={"Body": (0, -0.18, 0.018)},
+    )
+    anticipation = solve_arm_targets(
+        armature,
+        anticipation,
+        {"L": (0.72, -0.14, 0.88), "R": (-0.72, -0.14, 0.88)},
     )
     takeoff = adjusted_pose(
         jump[2],
         rotations={
-            "Torso": (-5, 0, 0),
-            "UpperArm.L": (-8, 0, -8),
-            "UpperArm.R": (-8, 0, 8),
+            "Torso": (-7, 0, 0),
+            "Head": (4, 0, 0),
+            "UpperLeg.L": (4, 0, -2),
+            "UpperLeg.R": (4, 0, 2),
         },
-        locations={"Body": (0, 0.035, 0)},
+        locations={"Body": (0, -0.01, 0)},
+    )
+    takeoff = solve_arm_targets(
+        armature,
+        takeoff,
+        {"L": (0.84, -0.12, 1.42), "R": (-0.84, -0.12, 1.42)},
+    )
+    liftoff = adjusted_pose(
+        jump[3],
+        rotations={"Torso": (-4, 0, 0), "Head": (3, 0, 0)},
+        locations={"Body": (0, 0.065, 0)},
+    )
+    liftoff = solve_arm_targets(
+        armature,
+        liftoff,
+        {"L": (0.82, -0.16, 1.52), "R": (-0.82, -0.16, 1.52)},
     )
     apex = adjusted_pose(
-        airborne[1],
+        blend_pose(jump[3], airborne[1], 0.58),
         rotations={
-            "UpperArm.L": (-15, 0, -12),
-            "UpperArm.R": (-15, 0, 12),
-            "LowerArm.L": (7, -4, -4),
-            "LowerArm.R": (7, 4, 4),
-            "UpperLeg.L": (9, 0, -5),
-            "UpperLeg.R": (15, 0, 7),
-            "LowerLeg.L": (15, 0, 4),
-            "LowerLeg.R": (22, 0, -5),
-            "Head": (6, 0, 0),
+            "Torso": (-3, 0, 0),
+            "Head": (5, 0, 0),
+            "UpperLeg.L": (12, 0, -6),
+            "UpperLeg.R": (19, 0, 7),
+            "LowerLeg.L": (23, 0, 5),
+            "LowerLeg.R": (29, 0, -7),
         },
-        locations={"Body": (0, 0.11, 0)},
+        locations={"Body": (0, 0.15, 0)},
+    )
+    apex = solve_arm_targets(
+        armature,
+        apex,
+        {"L": (0.74, -0.2, 1.62), "R": (-0.74, -0.2, 1.62)},
+    )
+    descending = adjusted_pose(
+        blend_pose(apex, landing[0], 0.48),
+        rotations={"Torso": (3, 0, 0), "Head": (-2, 0, 0)},
+        locations={"Body": (0, 0.055, 0)},
+    )
+    descending = solve_arm_targets(
+        armature,
+        descending,
+        {"L": (0.82, -0.15, 1.42), "R": (-0.82, -0.15, 1.42)},
+    )
+    contact = adjusted_pose(
+        landing[1],
+        rotations={"Torso": (5, 0, 0), "Head": (-3, 0, 0)},
+        locations={"Body": (0, -0.025, 0)},
+    )
+    contact = solve_arm_targets(
+        armature,
+        contact,
+        {"L": (0.76, -0.13, 0.92), "R": (-0.76, -0.13, 0.92)},
     )
     compression = adjusted_pose(
         landing[2],
         rotations={
-            "Torso": (11, 0, 0),
-            "Head": (-6, 0, 0),
-            "UpperArm.L": (5, 0, 6),
-            "UpperArm.R": (5, 0, -6),
+            "Torso": (14, 0, 0),
+            "Head": (-8, 0, 0),
+            "UpperLeg.L": (-5, 0, -2),
+            "UpperLeg.R": (-5, 0, 2),
+            "LowerLeg.L": (8, 0, 2),
+            "LowerLeg.R": (8, 0, -2),
         },
-        locations={"Body": (0, -0.11, 0.01)},
+        locations={"Body": (0, -0.15, 0.015)},
+    )
+    compression = solve_arm_targets(
+        armature,
+        compression,
+        {"L": (0.68, -0.14, 0.78), "R": (-0.68, -0.14, 0.78)},
     )
     rebound = adjusted_pose(
         idle,
@@ -303,21 +359,19 @@ def author_jump(armature: bpy.types.Object, sources: dict[str, bpy.types.Action]
         "RaeJump",
         [
             (1, idle),
-            (5, blend_pose(idle, jump[0], 0.7)),
-            (12, anticipation),
-            (17, takeoff),
-            (21, jump[3]),
-            (25, airborne[0]),
-            (33, apex),
-            (40, airborne[2]),
-            (45, landing[0]),
-            (50, landing[1]),
-            (56, compression),
-            (61, landing[3]),
-            (66, rebound),
-            (72, idle),
+            (6, preparation),
+            (14, anticipation),
+            (19, takeoff),
+            (24, liftoff),
+            (34, apex),
+            (43, descending),
+            (50, contact),
+            (58, compression),
+            (64, landing[3]),
+            (69, rebound),
+            (76, idle),
         ],
-        (1, 12, 33, 72),
+        (14, 34, 58, 76),
     )
 
 
@@ -412,42 +466,98 @@ def sleep_transition_poses(
         {"R": (-0.62, -0.25, 0.12)},
     )
 
-    kneeling = blend_pose(idle, seated, 0.78)
-    supported_lean = adjusted_pose(
-        blend_pose(seated, sleeping, 0.22),
-        rotations={
-            "Body": (0, 0, -5),
-            "Torso": (5, 0, 0),
-            "Head": (-3, 0, -2),
-            "UpperArm.L": (5, 0, -6),
-            "LowerArm.L": (8, 0, 12),
-        },
-        locations={"Body": (0.02, -0.035, 0)},
-    )
-    supported_side = adjusted_pose(
-        blend_pose(seated, sleeping, 0.56),
+    kneeling = blend_pose(idle, seated, 0.76)
+    weight_shift = adjusted_pose(
+        blend_pose(seated, sleeping, 0.12),
         rotations={
             "Torso": (3, 0, 0),
-            "Neck": (-2, 0, -2),
-            "Head": (-4, 0, -4),
-            "UpperArm.L": (4, 0, -5),
-            "LowerArm.L": (6, 0, 10),
+            "Head": (-2, 0, -1),
         },
-        locations={"Body": (0.035, -0.055, 0)},
+        locations={"Body": (0.015, -0.015, 0)},
     )
-    relaxed = adjusted_pose(
+    weight_shift = solve_arm_targets(
+        armature,
+        weight_shift,
+        {"R": (-0.58, -0.31, 0.24)},
+    )
+    weight_shift = adjusted_pose(
+        weight_shift,
+        rotations={"LowerArm.R": (0, -20, 0)},
+    )
+    hand_contact = adjusted_pose(
+        blend_pose(seated, sleeping, 0.24),
+        rotations={
+            "Torso": (5, 0, 0),
+            "Neck": (-2, 0, -2),
+            "Head": (-3, 0, -2),
+        },
+        locations={"Body": (0.025, -0.035, 0)},
+    )
+    hand_contact = solve_arm_targets(
+        armature,
+        hand_contact,
+        {"R": (-0.68, -0.31, 0.16)},
+    )
+    hand_contact = adjusted_pose(
+        hand_contact,
+        rotations={"LowerArm.R": (0, -55, 0)},
+    )
+    supported_lowering = adjusted_pose(
+        blend_pose(seated, sleeping, 0.44),
+        rotations={
+            "Torso": (5, 0, 0),
+            "Neck": (-3, 0, -3),
+            "Head": (-5, 0, -4),
+        },
+        locations={"Body": (0.045, -0.065, 0)},
+    )
+    supported_lowering = solve_arm_targets(
+        armature,
+        supported_lowering,
+        {"R": (-0.69, -0.29, 0.15)},
+    )
+    supported_lowering = adjusted_pose(
+        supported_lowering,
+        rotations={"LowerArm.R": (0, -65, 0)},
+    )
+    supported_side = adjusted_pose(
+        blend_pose(seated, sleeping, 0.68),
+        rotations={
+            "Torso": (3, 0, 0),
+            "Neck": (-3, 0, -3),
+            "Head": (-5, 0, -5),
+        },
+        locations={"Body": (0.05, -0.075, 0)},
+    )
+    supported_side = solve_arm_targets(
+        armature,
+        supported_side,
+        {"R": (-0.66, -0.27, 0.14)},
+    )
+    supported_side = adjusted_pose(
+        supported_side,
+        rotations={"LowerArm.R": (0, -70, 0)},
+    )
+    resting = adjusted_pose(
         sleeping,
-        rotations={"Torso": (-1.2, 0, 0), "Head": (1.2, 0, 1)},
-        locations={"Body": (0, 0.01, 0)},
+        rotations={
+            "Abdomen": (-1, 0, 0),
+            "Torso": (-1.5, 0, 0),
+            "Neck": (1, 0, 0),
+            "Head": (1.5, 0, 1),
+        },
+        locations={"Body": (0, 0.012, 0)},
     )
     return {
         "idle": idle,
         "kneeling": kneeling,
         "seated": seated,
-        "supported_lean": supported_lean,
+        "weight_shift": weight_shift,
+        "hand_contact": hand_contact,
+        "supported_lowering": supported_lowering,
         "supported_side": supported_side,
         "sleeping": sleeping,
-        "relaxed": relaxed,
+        "resting": resting,
     }
 
 
@@ -458,22 +568,25 @@ def author_sleep(armature: bpy.types.Object, sources: dict[str, bpy.types.Action
         "RaeSleep",
         [
             (1, poses["idle"]),
-            (16, poses["kneeling"]),
-            (30, poses["seated"]),
-            (48, poses["supported_lean"]),
-            (66, poses["supported_side"]),
-            (84, poses["sleeping"]),
-            (98, poses["relaxed"]),
-            (108, poses["sleeping"]),
+            (14, blend_pose(poses["idle"], poses["kneeling"], 0.48)),
+            (28, poses["kneeling"]),
+            (42, poses["seated"]),
+            (55, poses["weight_shift"]),
+            (68, poses["hand_contact"]),
+            (84, poses["supported_lowering"]),
+            (101, poses["supported_side"]),
+            (116, poses["sleeping"]),
+            (126, poses["resting"]),
+            (134, poses["resting"]),
         ],
-        (1, 48, 84, 108),
+        (1, 68, 101, 134),
     )
 
 
 def author_wake(armature: bpy.types.Object, sources: dict[str, bpy.types.Action]):
     poses = sleep_transition_poses(armature, sources)
     stirring = adjusted_pose(
-        poses["sleeping"],
+        poses["resting"],
         rotations={
             "Head": (8, 0, -3),
             "Neck": (4, 0, -2),
@@ -481,21 +594,24 @@ def author_wake(armature: bpy.types.Object, sources: dict[str, bpy.types.Action]
         },
         locations={"Body": (0, 0.025, 0)},
     )
-    upright_settle = blend_pose(poses["seated"], poses["idle"], 0.45)
+    upright_settle = blend_pose(poses["kneeling"], poses["idle"], 0.52)
     return create_action(
         armature,
         "RaeWake",
         [
-            (1, poses["sleeping"]),
+            (1, poses["resting"]),
             (12, stirring),
-            (28, poses["supported_side"]),
-            (44, poses["supported_lean"]),
-            (60, poses["seated"]),
-            (74, upright_settle),
-            (86, poses["idle"]),
-            (94, poses["idle"]),
+            (28, poses["sleeping"]),
+            (44, poses["supported_side"]),
+            (60, poses["supported_lowering"]),
+            (76, poses["hand_contact"]),
+            (90, poses["weight_shift"]),
+            (104, poses["seated"]),
+            (118, upright_settle),
+            (130, poses["idle"]),
+            (138, poses["idle"]),
         ],
-        (1, 28, 60, 94),
+        (1, 60, 104, 138),
     )
 
 
@@ -525,7 +641,7 @@ def main() -> None:
     scene.render.fps = 30
     scene.render.fps_base = 1.0
     scene.frame_start = 1
-    scene.frame_end = 108
+    scene.frame_end = 138
     scene["rae_core_actions"] = "RaeJump,RaeSit,RaeSleep,RaeWake"
     scene["rae_authored_fps"] = 30
     bpy.ops.wm.save_as_mainfile(filepath=str(output_path))

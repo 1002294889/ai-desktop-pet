@@ -19,6 +19,11 @@ def script_arguments() -> argparse.Namespace:
         default=",".join(EXPECTED_ACTIONS),
         help="Comma-separated Blender Action names to review",
     )
+    parser.add_argument(
+        "--frame-step",
+        type=int,
+        help="Render the complete Action at this frame interval",
+    )
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(arguments)
 
@@ -93,14 +98,22 @@ def configure_review_scene() -> bpy.types.Scene:
     return scene
 
 
-def review_frames(action: bpy.types.Action) -> list[int]:
+def review_frames(action: bpy.types.Action, frame_step: int | None) -> list[int]:
+    first, last = (int(round(value)) for value in action.frame_range)
+    if frame_step is not None:
+        if frame_step <= 0:
+            raise RuntimeError("--frame-step must be greater than zero")
+        frames = list(range(first, last + 1, frame_step))
+        if frames[-1] != last:
+            frames.append(last)
+        return frames
+
     configured = action.get("review_frames")
     if isinstance(configured, str):
         frames = [int(value.strip()) for value in configured.split(",")]
         if len(frames) == 4:
             return frames
 
-    first, last = (int(round(value)) for value in action.frame_range)
     span = last - first
     return [first, first + span // 3, first + (span * 2) // 3, last]
 
@@ -125,7 +138,9 @@ def main() -> None:
             raise RuntimeError(f"Missing Action {action_name}")
 
         armature.animation_data.action = action
-        for index, frame in enumerate(review_frames(action), start=1):
+        for index, frame in enumerate(
+            review_frames(action, options.frame_step), start=1
+        ):
             scene.frame_set(frame)
             scene.render.filepath = str(
                 output / f"{action_name}-{index}-frame-{frame:03d}.png"

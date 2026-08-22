@@ -148,6 +148,36 @@ for (const clipName of expectedClipNames) {
 }
 
 validateSleepWakeContinuity(clipsByName, errors)
+validateAuthoredMotion(
+  clipsByName.get('RaeJump'),
+  'RaeJump',
+  [
+    ['Torso', 'Abdomen'],
+    ['UpperArmL', 'LowerArmL', 'UpperArmR', 'LowerArmR'],
+    ['UpperLegL', 'LowerLegL', 'UpperLegR', 'LowerLegR']
+  ],
+  errors
+)
+validateAuthoredMotion(
+  clipsByName.get('RaeSleep'),
+  'RaeSleep',
+  [
+    ['Torso', 'Abdomen'],
+    ['UpperArmL', 'LowerArmL', 'UpperArmR', 'LowerArmR'],
+    ['UpperLegL', 'LowerLegL', 'UpperLegR', 'LowerLegR']
+  ],
+  errors
+)
+validateAuthoredMotion(
+  clipsByName.get('RaeWake'),
+  'RaeWake',
+  [
+    ['Torso', 'Abdomen'],
+    ['UpperArmL', 'LowerArmL', 'UpperArmR', 'LowerArmR'],
+    ['UpperLegL', 'LowerLegL', 'UpperLegR', 'LowerLegR']
+  ],
+  errors
+)
 
 const unexpectedClips = animationResource.animations
   .map((clip) => clip.name)
@@ -222,6 +252,63 @@ function validateSleepWakeContinuity(clips, validationErrors) {
   console.info(
     `RaeSleep → RaeWake endpoint continuity: maximum delta ${maximumDelta}`
   )
+}
+
+function validateAuthoredMotion(clip, clipName, boneGroups, validationErrors) {
+  if (!clip) {
+    return
+  }
+
+  const quaternionTracks = new Map()
+  for (const track of clip.tracks) {
+    const binding = PropertyBinding.parseTrackName(track.name)
+    if (binding.nodeName && binding.propertyName === 'quaternion') {
+      quaternionTracks.set(binding.nodeName, track)
+    }
+  }
+
+  const minimumExcursion = 0.08
+  const groupExcursions = boneGroups.map((bones) => {
+    const maximum = Math.max(
+      ...bones.map((bone) =>
+        quaternionExcursion(quaternionTracks.get(bone))
+      )
+    )
+    if (maximum < minimumExcursion) {
+      validationErrors.push(
+        `${clipName} lacks meaningful authored rotation across ${bones.join(', ')}`
+      )
+    }
+    return maximum
+  })
+
+  console.info(
+    `${clipName} skeletal motion coverage: ${groupExcursions
+      .map((value) => `${((value * 180) / Math.PI).toFixed(1)}°`)
+      .join(', ')}`
+  )
+}
+
+function quaternionExcursion(track) {
+  if (!track || track.getValueSize() !== 4 || track.values.length < 8) {
+    return 0
+  }
+
+  const initial = track.values.slice(0, 4)
+  let maximum = 0
+  for (let offset = 4; offset < track.values.length; offset += 4) {
+    const dot = Math.abs(
+      initial[0] * track.values[offset] +
+        initial[1] * track.values[offset + 1] +
+        initial[2] * track.values[offset + 2] +
+        initial[3] * track.values[offset + 3]
+    )
+    maximum = Math.max(
+      maximum,
+      2 * Math.acos(Math.min(1, Math.max(-1, dot)))
+    )
+  }
+  return maximum
 }
 
 async function loadGlb(path) {
