@@ -196,6 +196,10 @@ export function ThreeDRenderer({
               'data-loaded-clips': modelDiagnostics?.clipNames.join('|') ?? '',
               'data-external-clips': modelDiagnostics?.externalClipNames.join('|') ?? '',
               'data-animation-errors': modelDiagnostics?.externalErrors.join('|') ?? '',
+              'data-retarget-modes': modelDiagnostics?.retargetModes.join('|') ?? '',
+              'data-humanoid-bones': modelDiagnostics?.mappedHumanoidBones.join('|') ?? '',
+              'data-retarget-samples': modelDiagnostics?.retargetSampleCounts.join('|') ?? '',
+              'data-translation-scales': modelDiagnostics?.retargetTranslationScales.join('|') ?? '',
               'data-skinned-meshes': modelDiagnostics?.skinnedMeshCount ?? 0,
               'data-bones': modelDiagnostics?.boneCount ?? 0,
               'data-look-at-head': modelDiagnostics?.lookAt?.headBone ?? '',
@@ -318,8 +322,11 @@ function getDevelopmentAnimationDescription(
   const lookAtDescription = diagnostics?.lookAt?.configured
     ? `, look-at bones ${lookAtBones.join(', ') || 'none'}`
     : ', look-at disabled'
+  const retargetDescription = diagnostics?.retargetModes.length
+    ? `, retarget ${diagnostics.retargetModes.join(', ')}, samples ${diagnostics.retargetSampleCounts.join(', ') || 'none'}, translation scales ${diagnostics.retargetTranslationScales.join(', ') || 'none'}`
+    : ''
 
-  return `, ${diagnostics?.skinnedMeshCount ?? 0} skinned meshes, ${diagnostics?.boneCount ?? 0} bones, loaded clips ${diagnostics?.clipNames.join(', ') || 'none'}, external clips ${diagnostics?.externalClipNames.join(', ') || 'none'}, playback ${diagnostics?.playback?.mode ?? 'none'}${clipSource ? ` ${clipSource}` : ''}${clipName ? ` ${clipName}` : ''}${lookAtDescription}`
+  return `, ${diagnostics?.skinnedMeshCount ?? 0} skinned meshes, ${diagnostics?.boneCount ?? 0} bones, loaded clips ${diagnostics?.clipNames.join(', ') || 'none'}, external clips ${diagnostics?.externalClipNames.join(', ') || 'none'}, playback ${diagnostics?.playback?.mode ?? 'none'}${clipSource ? ` ${clipSource}` : ''}${clipName ? ` ${clipName}` : ''}${retargetDescription}${lookAtDescription}`
 }
 
 function ThreeDFrameDriver(): null {

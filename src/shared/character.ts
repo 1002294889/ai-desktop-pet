@@ -20,6 +20,30 @@ export const CHARACTER_ACTION_TYPES = [
 
 export type CharacterActionType = (typeof CHARACTER_ACTION_TYPES)[number]
 
+export const HUMANOID_BONE_ROLES = [
+  'hips',
+  'spine',
+  'chest',
+  'neck',
+  'head',
+  'leftShoulder',
+  'rightShoulder',
+  'leftUpperArm',
+  'rightUpperArm',
+  'leftLowerArm',
+  'rightLowerArm',
+  'leftHand',
+  'rightHand',
+  'leftUpperLeg',
+  'rightUpperLeg',
+  'leftLowerLeg',
+  'rightLowerLeg',
+  'leftFoot',
+  'rightFoot'
+] as const
+
+export type HumanoidBoneRole = (typeof HUMANOID_BONE_ROLES)[number]
+
 interface CharacterActionBase {
   type: CharacterActionType
   loop?: boolean
@@ -58,9 +82,28 @@ export interface ThreeDCharacterAction extends CharacterActionBase {
   lookAtWeight?: number
 }
 
-export interface ThreeDAnimationRetargetConfiguration {
+export interface ThreeDDirectAnimationRetargetConfiguration {
+  mode?: 'direct'
   boneMap: Record<string, string>
 }
+
+export interface ThreeDHumanoidBoneMapping {
+  source: string
+  target: string
+  axisCorrectionDegrees?: ThreeDVector
+}
+
+export interface ThreeDHumanoidAnimationRetargetConfiguration {
+  mode: 'humanoid'
+  bones: Partial<Record<HumanoidBoneRole, ThreeDHumanoidBoneMapping>>
+  sampleRate?: number
+  hipTranslation?: 'none' | 'scaled'
+  translationScale?: 'auto' | number
+}
+
+export type ThreeDAnimationRetargetConfiguration =
+  | ThreeDDirectAnimationRetargetConfiguration
+  | ThreeDHumanoidAnimationRetargetConfiguration
 
 export type CharacterAction =
   | StaticCharacterAction
@@ -256,7 +299,42 @@ function isLoadedCharacterAction(value: unknown): value is LoadedCharacterAction
 function isThreeDAnimationRetargetConfiguration(
   value: unknown
 ): value is ThreeDAnimationRetargetConfiguration {
-  if (!isRecord(value) || !isRecord(value.boneMap)) {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  if (value.mode === 'humanoid') {
+    if (!isRecord(value.bones)) {
+      return false
+    }
+
+    const entries = Object.entries(value.bones)
+
+    return (
+      entries.length > 0 &&
+      entries.every(
+        ([role, mapping]) =>
+          HUMANOID_BONE_ROLES.includes(role as HumanoidBoneRole) &&
+          isThreeDHumanoidBoneMapping(mapping)
+      ) &&
+      (value.sampleRate === undefined ||
+        (typeof value.sampleRate === 'number' && Number.isFinite(value.sampleRate))) &&
+      (value.hipTranslation === undefined ||
+        value.hipTranslation === 'none' ||
+        value.hipTranslation === 'scaled') &&
+      (value.translationScale === undefined ||
+        value.translationScale === 'auto' ||
+        (typeof value.translationScale === 'number' &&
+          Number.isFinite(value.translationScale) &&
+          value.translationScale > 0))
+    )
+  }
+
+  if (value.mode !== undefined && value.mode !== 'direct') {
+    return false
+  }
+
+  if (!isRecord(value.boneMap)) {
     return false
   }
 
@@ -270,6 +348,20 @@ function isThreeDAnimationRetargetConfiguration(
         typeof targetBone === 'string' &&
         targetBone.trim().length > 0
     )
+  )
+}
+
+function isThreeDHumanoidBoneMapping(
+  value: unknown
+): value is ThreeDHumanoidBoneMapping {
+  return (
+    isRecord(value) &&
+    typeof value.source === 'string' &&
+    value.source.trim().length > 0 &&
+    typeof value.target === 'string' &&
+    value.target.trim().length > 0 &&
+    (value.axisCorrectionDegrees === undefined ||
+      isThreeDVector(value.axisCorrectionDegrees))
   )
 }
 

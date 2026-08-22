@@ -3,12 +3,16 @@ import { posix } from 'node:path'
 import {
   CHARACTER_ACTION_TYPES,
   CHARACTER_RENDERER_TYPES,
+  HUMANOID_BONE_ROLES,
   type CharacterAction,
   type CharacterActionType,
   type CharacterManifest,
   type CharacterRendererType,
   type SpriteCharacterAction,
   type ThreeDAnimationRetargetConfiguration,
+  type ThreeDDirectAnimationRetargetConfiguration,
+  type ThreeDHumanoidAnimationRetargetConfiguration,
+  type ThreeDHumanoidBoneMapping,
   type ThreeDCharacterAction,
   type ThreeDCharacterConfiguration,
   type ThreeDLookAtConfiguration,
@@ -29,6 +33,11 @@ const MAX_3D_FADE_DURATION_MS = 2_000
 const MAX_ANIMATION_CLIP_NAME_LENGTH = 120
 const MAX_BONE_NAME_LENGTH = 120
 const MAX_RETARGET_BONES = 128
+const MIN_RETARGET_SAMPLE_RATE = 12
+const MAX_RETARGET_SAMPLE_RATE = 60
+const MAX_RETARGET_AXIS_CORRECTION_DEGREES = 360
+const MIN_RETARGET_TRANSLATION_SCALE = 0.05
+const MAX_RETARGET_TRANSLATION_SCALE = 20
 const DEFAULT_3D_CAMERA_POSITION: ThreeDVector = [0, 0.6, 4.5]
 const DEFAULT_3D_MODEL_POSITION: ThreeDVector = [0, -0.9, 0]
 const DEFAULT_3D_MODEL_ROTATION: ThreeDVector = [0, 0, 0]
@@ -315,8 +324,20 @@ function readOptionalThreeDRetargetConfiguration(
     return undefined
   }
 
-  if (!isRecord(value) || !isRecord(value.boneMap)) {
-    throw new Error(`${source} must contain a "boneMap" object`)
+  if (!isRecord(value)) {
+    throw new Error(`${source} must be an object`)
+  }
+
+  if (value.mode === 'humanoid') {
+    return readHumanoidRetargetConfiguration(value, source)
+  }
+
+  if (value.mode !== undefined && value.mode !== 'direct') {
+    throw new Error(`${source}: "mode" must be "direct" or "humanoid"`)
+  }
+
+  if (!isRecord(value.boneMap)) {
+    throw new Error(`${source} direct mode must contain a "boneMap" object`)
   }
 
   const entries = Object.entries(value.boneMap)
@@ -343,7 +364,158 @@ function readOptionalThreeDRetargetConfiguration(
     })
   )
 
-  return { boneMap }
+  const configuration: ThreeDDirectAnimationRetargetConfiguration = {
+    ...(value.mode === 'direct' ? { mode: 'direct' } : {}),
+    boneMap
+  }
+
+  return configuration
+}
+
+function readHumanoidRetargetConfiguration(
+  value: Record<string, unknown>,
+  source: string
+): ThreeDHumanoidAnimationRetargetConfiguration {
+  if (!isRecord(value.bones)) {
+    throw new Error(`${source} humanoid mode must contain a "bones" object`)
+  }
+
+  const entries = Object.entries(value.bones)
+
+  if (entries.length === 0 || entries.length > HUMANOID_BONE_ROLES.length) {
+    throw new Error(
+      `${source}: "bones" must contain 1 to ${HUMANOID_BONE_ROLES.length} humanoid roles`
+    )
+  }
+
+  const sourceNames = new Set<string>()
+  const targetNames = new Set<string>()
+  const bones: Partial<
+    Record<(typeof HUMANOID_BONE_ROLES)[number], ThreeDHumanoidBoneMapping>
+  > = {}
+
+  for (const [role, rawMapping] of entries) {
+    if (!HUMANOID_BONE_ROLES.includes(role as (typeof HUMANOID_BONE_ROLES)[number])) {
+      throw new Error(`${source}: unsupported humanoid bone role "${role}"`)
+    }
+
+    if (!isRecord(rawMapping)) {
+      throw new Error(`${source}: humanoid bone "${role}" must be an object`)
+    }
+
+    const sourceBone = readOptionalString(
+      rawMapping,
+      'source',
+      `${source}: humanoid bone "${role}"`,
+      MAX_BONE_NAME_LENGTH
+    )
+    const targetBone = readOptionalString(
+      rawMapping,
+      'target',
+      `${source}: humanoid bone "${role}"`,
+      MAX_BONE_NAME_LENGTH
+    )
+
+    if (!sourceBone || !targetBone) {
+      throw new Error(
+        `${source}: humanoid bone "${role}" requires "source" and "target"`
+      )
+    }
+
+    if (sourceNames.has(sourceBone) || targetNames.has(targetBone)) {
+      throw new Error(
+        `${source}: humanoid source and target bone names must be unique`
+      )
+    }
+
+    sourceNames.add(sourceBone)
+    targetNames.add(targetBone)
+    const axisCorrectionDegrees = readOptionalAxisCorrection(
+      rawMapping.axisCorrectionDegrees,
+      `${source}: humanoid bone "${role}".axisCorrectionDegrees`
+    )
+
+    bones[role as (typeof HUMANOID_BONE_ROLES)[number]] = {
+      source: sourceBone,
+      target: targetBone,
+      ...(axisCorrectionDegrees ? { axisCorrectionDegrees } : {})
+    }
+  }
+
+  const sampleRate = value.sampleRate
+
+  if (
+    sampleRate !== undefined &&
+    (typeof sampleRate !== 'number' ||
+      !Number.isInteger(sampleRate) ||
+      sampleRate < MIN_RETARGET_SAMPLE_RATE ||
+      sampleRate > MAX_RETARGET_SAMPLE_RATE)
+  ) {
+    throw new Error(
+      `${source}: "sampleRate" must be an integer from ${MIN_RETARGET_SAMPLE_RATE} to ${MAX_RETARGET_SAMPLE_RATE}`
+    )
+  }
+
+  const hipTranslation = value.hipTranslation
+
+  if (
+    hipTranslation !== undefined &&
+    hipTranslation !== 'none' &&
+    hipTranslation !== 'scaled'
+  ) {
+    throw new Error(`${source}: "hipTranslation" must be "none" or "scaled"`)
+  }
+
+  const translationScale = value.translationScale
+
+  if (
+    translationScale !== undefined &&
+    translationScale !== 'auto' &&
+    (typeof translationScale !== 'number' ||
+      !Number.isFinite(translationScale) ||
+      translationScale < MIN_RETARGET_TRANSLATION_SCALE ||
+      translationScale > MAX_RETARGET_TRANSLATION_SCALE)
+  ) {
+    throw new Error(
+      `${source}: "translationScale" must be "auto" or a number from ${MIN_RETARGET_TRANSLATION_SCALE} to ${MAX_RETARGET_TRANSLATION_SCALE}`
+    )
+  }
+
+  return {
+    mode: 'humanoid',
+    bones,
+    ...(typeof sampleRate === 'number' ? { sampleRate } : {}),
+    ...(typeof hipTranslation === 'string' ? { hipTranslation } : {}),
+    ...(translationScale === 'auto' || typeof translationScale === 'number'
+      ? { translationScale }
+      : {})
+  }
+}
+
+function readOptionalAxisCorrection(
+  value: unknown,
+  source: string
+): ThreeDVector | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (
+    !Array.isArray(value) ||
+    value.length !== 3 ||
+    value.some(
+      (entry) =>
+        typeof entry !== 'number' ||
+        !Number.isFinite(entry) ||
+        Math.abs(entry) > MAX_RETARGET_AXIS_CORRECTION_DEGREES
+    )
+  ) {
+    throw new Error(
+      `${source} must contain three finite degree values between -${MAX_RETARGET_AXIS_CORRECTION_DEGREES} and ${MAX_RETARGET_AXIS_CORRECTION_DEGREES}`
+    )
+  }
+
+  return [value[0] as number, value[1] as number, value[2] as number]
 }
 
 function readThreeDConfiguration(

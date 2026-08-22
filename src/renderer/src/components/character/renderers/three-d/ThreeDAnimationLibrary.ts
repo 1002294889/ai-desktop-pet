@@ -22,6 +22,10 @@ export interface ThreeDAnimationLibraryDiagnostics {
   droppedRetargetTracks: readonly string[]
   missingRetargetBones: readonly string[]
   externalErrors: readonly string[]
+  retargetModes: readonly string[]
+  mappedHumanoidBones: readonly string[]
+  retargetSampleCounts: readonly string[]
+  retargetTranslationScales: readonly string[]
 }
 
 export interface LoadedThreeDAnimationLibrary {
@@ -51,31 +55,42 @@ export class ThreeDAnimationLibrary {
     const droppedRetargetTracks: string[] = []
     const missingRetargetBones = new Set<string>()
     const externalErrors: string[] = []
+    const retargetModes: string[] = []
+    const mappedHumanoidBones: string[] = []
+    const retargetSampleCounts: string[] = []
+    const retargetTranslationScales: string[] = []
     const externalActions = Object.entries(this.configuredActions).flatMap(
       ([semanticAction, action]) =>
         isLoadedExternalAnimationAction(action)
           ? [[semanticAction, action] as const]
           : []
     )
-    const resources = new Map<string, Promise<GLTF>>()
+    const resources = new Map<string, Promise<ExternalResourceResult>>()
 
     for (const [, action] of externalActions) {
       if (!resources.has(action.animationUrl)) {
-        resources.set(action.animationUrl, this.loadGlb(action.animationUrl))
+        resources.set(
+          action.animationUrl,
+          this.loadGlb(action.animationUrl).then(
+            (loaded) => ({ loaded }),
+            (error: unknown) => ({ error })
+          )
+        )
       }
     }
 
     for (const [animationUrl, resourcePromise] of resources) {
-      let loaded: GLTF
+      const resource = await resourcePromise
 
-      try {
-        loaded = await resourcePromise
-      } catch (error: unknown) {
+      if (!resource.loaded) {
         if (!this.disposed) {
-          externalErrors.push(`${animationUrl}:${getErrorMessage(error)}`)
+          externalErrors.push(
+            `${animationUrl}:${getErrorMessage(resource.error)}`
+          )
         }
         continue
       }
+      const loaded = resource.loaded
 
       try {
         if (this.disposed) {
@@ -132,6 +147,22 @@ export class ThreeDAnimationLibrary {
               (track) => `${semanticAction}:${track}`
             )
           )
+          retargetModes.push(`${semanticAction}:${result.diagnostics.mode}`)
+          mappedHumanoidBones.push(
+            ...result.diagnostics.mappedHumanoidBones.map(
+              (bone) => `${semanticAction}:${bone}`
+            )
+          )
+          if (result.diagnostics.sampleCount > 0) {
+            retargetSampleCounts.push(
+              `${semanticAction}:${result.diagnostics.sampleCount}`
+            )
+          }
+          if (result.diagnostics.translationScale !== undefined) {
+            retargetTranslationScales.push(
+              `${semanticAction}:${result.diagnostics.translationScale.toFixed(3)}`
+            )
+          }
           result.diagnostics.missingSourceBones.forEach((bone) =>
             missingRetargetBones.add(`source:${bone}`)
           )
@@ -152,7 +183,11 @@ export class ThreeDAnimationLibrary {
         retargetedTracks,
         droppedRetargetTracks,
         missingRetargetBones: [...missingRetargetBones],
-        externalErrors
+        externalErrors,
+        retargetModes,
+        mappedHumanoidBones,
+        retargetSampleCounts,
+        retargetTranslationScales
       }
     }
   }
@@ -183,11 +218,19 @@ export class ThreeDAnimationLibrary {
   }
 }
 
+interface ExternalResourceResult {
+  loaded?: GLTF
+  error?: unknown
+}
+
 const EMPTY_RETARGET_DIAGNOSTICS: ThreeDAnimationRetargetDiagnostics = {
+  mode: 'direct',
   retargetedTracks: [],
   droppedTracks: [],
   missingSourceBones: [],
-  missingTargetBones: []
+  missingTargetBones: [],
+  mappedHumanoidBones: [],
+  sampleCount: 0
 }
 
 function getErrorMessage(error: unknown): string {

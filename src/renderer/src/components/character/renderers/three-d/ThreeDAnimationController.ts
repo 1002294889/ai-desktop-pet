@@ -334,7 +334,11 @@ const EMPTY_EXTERNAL_LIBRARY: LoadedThreeDAnimationLibrary = {
     retargetedTracks: [],
     droppedRetargetTracks: [],
     missingRetargetBones: [],
-    externalErrors: []
+    externalErrors: [],
+    retargetModes: [],
+    mappedHumanoidBones: [],
+    retargetSampleCounts: [],
+    retargetTranslationScales: []
   }
 }
 

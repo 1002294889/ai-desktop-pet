@@ -186,6 +186,12 @@ export function ThreeDModelCharacter({
           retargetedTracks: [...diagnostics.retargetedTracks],
           droppedRetargetTracks: [...diagnostics.droppedRetargetTracks],
           missingRetargetBones: [...diagnostics.missingRetargetBones],
+          retargetModes: [...diagnostics.retargetModes],
+          mappedHumanoidBones: [...diagnostics.mappedHumanoidBones],
+          retargetSampleCounts: [...diagnostics.retargetSampleCounts],
+          retargetTranslationScales: [
+            ...diagnostics.retargetTranslationScales
+          ],
           externalErrors: [...diagnostics.externalErrors],
           lookAt: diagnostics.lookAt
         })
