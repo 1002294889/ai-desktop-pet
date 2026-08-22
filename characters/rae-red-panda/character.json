@@ -39,76 +39,28 @@
     },
     "sit": {
       "type": "3d",
-      "clip": "Duck",
+      "source": "assets/animations/rae-actions.glb",
+      "clip": "RaeSit",
       "loop": true,
-      "fadeDurationMs": 260
+      "fadeDurationMs": 300,
+      "lookAtWeight": 0.7
     },
     "sleep": {
       "type": "3d",
-      "source": "assets/animations/development-actions.glb",
-      "clip": "Sleep",
-      "retarget": {
-        "mode": "humanoid",
-        "sampleRate": 30,
-        "hipTranslation": "scaled",
-        "translationScale": "auto",
-        "bones": {
-          "hips": { "source": "RigRoot", "target": "Root" },
-          "spine": { "source": "Body", "target": "Hips" },
-          "chest": { "source": "Chest", "target": "Torso" },
-          "neck": { "source": "Neck", "target": "Neck" },
-          "head": { "source": "Head", "target": "Head" },
-          "leftShoulder": { "source": "LeftShoulder", "target": "Shoulder.L" },
-          "rightShoulder": { "source": "RightShoulder", "target": "Shoulder.R" },
-          "leftUpperArm": { "source": "LeftArm", "target": "UpperArm.L" },
-          "rightUpperArm": { "source": "RightArm", "target": "UpperArm.R" },
-          "leftLowerArm": { "source": "LeftForeArm", "target": "LowerArm.L" },
-          "rightLowerArm": { "source": "RightForeArm", "target": "LowerArm.R" },
-          "leftUpperLeg": { "source": "LeftLeg", "target": "UpperLeg.L" },
-          "rightUpperLeg": { "source": "RightLeg", "target": "UpperLeg.R" },
-          "leftLowerLeg": { "source": "LeftShin", "target": "LowerLeg.L" },
-          "rightLowerLeg": { "source": "RightShin", "target": "LowerLeg.R" },
-          "leftFoot": { "source": "LeftFoot", "target": "Foot.L" },
-          "rightFoot": { "source": "RightFoot", "target": "Foot.R" }
-        }
-      },
+      "source": "assets/animations/rae-actions.glb",
+      "clip": "RaeSleep",
       "loop": true,
-      "fadeDurationMs": 340,
+      "fadeDurationMs": 420,
       "lookAtWeight": 0
     },
     "wake": {
       "type": "3d",
-      "source": "assets/animations/development-actions.glb",
-      "clip": "Wake",
-      "retarget": {
-        "mode": "humanoid",
-        "sampleRate": 30,
-        "hipTranslation": "scaled",
-        "translationScale": "auto",
-        "bones": {
-          "hips": { "source": "RigRoot", "target": "Root" },
-          "spine": { "source": "Body", "target": "Hips" },
-          "chest": { "source": "Chest", "target": "Torso" },
-          "neck": { "source": "Neck", "target": "Neck" },
-          "head": { "source": "Head", "target": "Head" },
-          "leftShoulder": { "source": "LeftShoulder", "target": "Shoulder.L" },
-          "rightShoulder": { "source": "RightShoulder", "target": "Shoulder.R" },
-          "leftUpperArm": { "source": "LeftArm", "target": "UpperArm.L" },
-          "rightUpperArm": { "source": "RightArm", "target": "UpperArm.R" },
-          "leftLowerArm": { "source": "LeftForeArm", "target": "LowerArm.L" },
-          "rightLowerArm": { "source": "RightForeArm", "target": "LowerArm.R" },
-          "leftUpperLeg": { "source": "LeftLeg", "target": "UpperLeg.L" },
-          "rightUpperLeg": { "source": "RightLeg", "target": "UpperLeg.R" },
-          "leftLowerLeg": { "source": "LeftShin", "target": "LowerLeg.L" },
-          "rightLowerLeg": { "source": "RightShin", "target": "LowerLeg.R" },
-          "leftFoot": { "source": "LeftFoot", "target": "Foot.L" },
-          "rightFoot": { "source": "RightFoot", "target": "Foot.R" }
-        }
-      },
+      "source": "assets/animations/rae-actions.glb",
+      "clip": "RaeWake",
       "loop": false,
-      "fadeDurationMs": 220,
+      "fadeDurationMs": 260,
       "clampWhenFinished": true,
-      "lookAtWeight": 0.35
+      "lookAtWeight": 0.2
     },
     "happy": {
       "type": "3d",
@@ -154,35 +106,10 @@
     },
     "jump": {
       "type": "3d",
-      "source": "assets/animations/development-actions.glb",
-      "clip": "Jump",
-      "retarget": {
-        "mode": "humanoid",
-        "sampleRate": 30,
-        "hipTranslation": "scaled",
-        "translationScale": "auto",
-        "bones": {
-          "hips": { "source": "RigRoot", "target": "Root" },
-          "spine": { "source": "Body", "target": "Hips" },
-          "chest": { "source": "Chest", "target": "Torso" },
-          "neck": { "source": "Neck", "target": "Neck" },
-          "head": { "source": "Head", "target": "Head" },
-          "leftShoulder": { "source": "LeftShoulder", "target": "Shoulder.L" },
-          "rightShoulder": { "source": "RightShoulder", "target": "Shoulder.R" },
-          "leftUpperArm": { "source": "LeftArm", "target": "UpperArm.L" },
-          "rightUpperArm": { "source": "RightArm", "target": "UpperArm.R" },
-          "leftLowerArm": { "source": "LeftForeArm", "target": "LowerArm.L" },
-          "rightLowerArm": { "source": "RightForeArm", "target": "LowerArm.R" },
-          "leftUpperLeg": { "source": "LeftLeg", "target": "UpperLeg.L" },
-          "rightUpperLeg": { "source": "RightLeg", "target": "UpperLeg.R" },
-          "leftLowerLeg": { "source": "LeftShin", "target": "LowerLeg.L" },
-          "rightLowerLeg": { "source": "RightShin", "target": "LowerLeg.R" },
-          "leftFoot": { "source": "LeftFoot", "target": "Foot.L" },
-          "rightFoot": { "source": "RightFoot", "target": "Foot.R" }
-        }
-      },
+      "source": "assets/animations/rae-actions.glb",
+      "clip": "RaeJump",
       "loop": false,
-      "fadeDurationMs": 150,
+      "fadeDurationMs": 160,
       "clampWhenFinished": true,
       "lookAtWeight": 0.18
     },

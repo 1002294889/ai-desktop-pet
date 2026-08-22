@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
+    "generate:rae-actions": "node tools/generate-rae-actions.mjs",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
