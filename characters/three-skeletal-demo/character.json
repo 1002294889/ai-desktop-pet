@@ -1,6 +1,6 @@
 {
   "id": "three-skeletal-demo",
-  "name": "Rigged 3D Test Pet",
+  "name": "Development Test Pet",
   "renderer": "3d",
   "version": 4,
   "defaultWidth": 250,
