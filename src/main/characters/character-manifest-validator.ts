@@ -10,6 +10,7 @@ import {
   type SpriteCharacterAction,
   type ThreeDCharacterAction,
   type ThreeDCharacterConfiguration,
+  type ThreeDLookAtConfiguration,
   type ThreeDRootMotionMode,
   type ThreeDVector
 } from '../../shared/character'
@@ -25,6 +26,7 @@ const MAX_3D_COORDINATE = 1_000
 const MAX_3D_ACTION_DURATION_MS = 30_000
 const MAX_3D_FADE_DURATION_MS = 2_000
 const MAX_ANIMATION_CLIP_NAME_LENGTH = 120
+const MAX_BONE_NAME_LENGTH = 120
 const DEFAULT_3D_CAMERA_POSITION: ThreeDVector = [0, 0.6, 4.5]
 const DEFAULT_3D_MODEL_POSITION: ThreeDVector = [0, -0.9, 0]
 const DEFAULT_3D_MODEL_ROTATION: ThreeDVector = [0, 0, 0]
@@ -288,6 +290,10 @@ function readThreeDConfiguration(
 
   const rendererSource = configuredSource ?? (model ? 'model' : 'procedural')
   const configuredRootMotion = configuration.rootMotion
+  const lookAt = readOptionalThreeDLookAtConfiguration(
+    configuration.lookAt,
+    `${source}: "3d.lookAt"`
+  )
 
   if (
     configuredRootMotion !== undefined &&
@@ -327,7 +333,52 @@ function readThreeDConfiguration(
       `${source}: "3d"`,
       DEFAULT_3D_MODEL_ROTATION
     ),
-    rootMotion: configuredRootMotion ?? DEFAULT_3D_ROOT_MOTION
+    rootMotion: configuredRootMotion ?? DEFAULT_3D_ROOT_MOTION,
+    ...(lookAt ? { lookAt } : {})
+  }
+}
+
+function readOptionalThreeDLookAtConfiguration(
+  value: unknown,
+  source: string
+): ThreeDLookAtConfiguration | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (!isRecord(value)) {
+    throw new Error(`${source} must be an object when provided`)
+  }
+
+  const headBone = readOptionalString(
+    value,
+    'headBone',
+    source,
+    MAX_BONE_NAME_LENGTH
+  )
+  const leftEyeBone = readOptionalString(
+    value,
+    'leftEyeBone',
+    source,
+    MAX_BONE_NAME_LENGTH
+  )
+  const rightEyeBone = readOptionalString(
+    value,
+    'rightEyeBone',
+    source,
+    MAX_BONE_NAME_LENGTH
+  )
+
+  if (!headBone && !leftEyeBone && !rightEyeBone) {
+    throw new Error(
+      `${source} must configure at least one head or eye bone`
+    )
+  }
+
+  return {
+    ...(headBone ? { headBone } : {}),
+    ...(leftEyeBone ? { leftEyeBone } : {}),
+    ...(rightEyeBone ? { rightEyeBone } : {})
   }
 }
 

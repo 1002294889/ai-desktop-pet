@@ -68,12 +68,19 @@ export type ThreeDCharacterSource = 'model' | 'procedural'
 
 export type ThreeDRootMotionMode = 'lock-horizontal' | 'lock-all'
 
+export interface ThreeDLookAtConfiguration {
+  headBone?: string
+  leftEyeBone?: string
+  rightEyeBone?: string
+}
+
 export interface ThreeDCharacterConfiguration {
   source: ThreeDCharacterSource
   cameraPosition: ThreeDVector
   modelPosition: ThreeDVector
   modelRotation: ThreeDVector
   rootMotion: ThreeDRootMotionMode
+  lookAt?: ThreeDLookAtConfiguration
 }
 
 export interface CharacterManifest {
@@ -232,8 +239,30 @@ function isThreeDCharacterConfiguration(
     isThreeDVector(value.cameraPosition) &&
     isThreeDVector(value.modelPosition) &&
     isThreeDVector(value.modelRotation) &&
-    (value.rootMotion === 'lock-horizontal' || value.rootMotion === 'lock-all')
+    (value.rootMotion === 'lock-horizontal' || value.rootMotion === 'lock-all') &&
+    (value.lookAt === undefined || isThreeDLookAtConfiguration(value.lookAt))
   )
+}
+
+function isThreeDLookAtConfiguration(
+  value: unknown
+): value is ThreeDLookAtConfiguration {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    isOptionalNonEmptyString(value.headBone) &&
+    isOptionalNonEmptyString(value.leftEyeBone) &&
+    isOptionalNonEmptyString(value.rightEyeBone) &&
+    [value.headBone, value.leftEyeBone, value.rightEyeBone].some(
+      (boneName) => typeof boneName === 'string'
+    )
+  )
+}
+
+function isOptionalNonEmptyString(value: unknown): boolean {
+  return value === undefined || (typeof value === 'string' && value.trim().length > 0)
 }
 
 function isThreeDVector(value: unknown): value is ThreeDVector {

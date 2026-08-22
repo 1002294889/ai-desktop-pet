@@ -11,6 +11,7 @@ import type {
   CharacterAction,
   LoadedThreeDCharacterAction,
   ThreeDCharacterAction,
+  ThreeDLookAtConfiguration,
   ThreeDRootMotionMode
 } from '../../../../../../shared/character'
 import type { PetAction } from '../../../../../../shared/pet-action'
@@ -24,6 +25,11 @@ import {
   type ThreeDAnimationDiagnostics,
   type ThreeDAnimationPlayback
 } from './ThreeDAnimationController'
+import {
+  ThreeDLookAtController,
+  type ThreeDCursorAttentionTarget,
+  type ThreeDLookAtDiagnostics
+} from './ThreeDLookAtController'
 import { disposeThreeDObject } from './three-d-resource-disposal'
 
 interface ThreeDModelCharacterProps {
@@ -34,6 +40,8 @@ interface ThreeDModelCharacterProps {
   emotion?: EmotionSnapshot
   modelUrl: string
   characterId: string
+  attentionTarget: ThreeDCursorAttentionTarget
+  lookAt?: ThreeDLookAtConfiguration
   onComplete: () => void
   onDiagnosticsChange: (diagnostics: ThreeDModelDiagnostics | undefined) => void
   onLoadStateChange: (state: 'loading' | 'ready' | 'error') => void
@@ -44,6 +52,7 @@ interface ThreeDModelCharacterProps {
 
 export interface ThreeDModelDiagnostics extends ThreeDAnimationDiagnostics {
   playback?: ThreeDAnimationPlayback
+  lookAt?: ThreeDLookAtDiagnostics
 }
 
 export function ThreeDModelCharacter({
@@ -54,6 +63,8 @@ export function ThreeDModelCharacter({
   emotion,
   modelUrl,
   characterId,
+  attentionTarget,
+  lookAt,
   onComplete,
   onDiagnosticsChange,
   onLoadStateChange,
@@ -64,6 +75,7 @@ export function ThreeDModelCharacter({
   const [model, setModel] = useState<GLTF>()
   const motionRootRef = useRef<Group>(null)
   const controllerRef = useRef<ThreeDAnimationController | undefined>(undefined)
+  const lookAtControllerRef = useRef<ThreeDLookAtController | undefined>(undefined)
   const actionTime = useRef(0)
   const facing = useRef(0)
   const isUsingClip = useRef(false)
@@ -126,9 +138,14 @@ export function ThreeDModelCharacter({
       rootMotion,
       animationMappings
     )
-    const diagnostics = controller.getDiagnostics()
+    const lookAtController = new ThreeDLookAtController(model.scene, lookAt)
+    const diagnostics = {
+      ...controller.getDiagnostics(),
+      lookAt: lookAtController.getDiagnostics()
+    }
 
     controllerRef.current = controller
+    lookAtControllerRef.current = lookAtController
     onDiagnosticsChange(diagnostics)
 
     if (import.meta.env.DEV) {
@@ -139,19 +156,25 @@ export function ThreeDModelCharacter({
         skinnedMeshes: diagnostics.skinnedMeshCount,
         bones: diagnostics.boneCount,
         neutralizedRootMotionTracks: [...diagnostics.rootMotionTracks],
-        missingMappings: [...diagnostics.missingMappings]
+        missingMappings: [...diagnostics.missingMappings],
+        lookAt: diagnostics.lookAt
       })
     }
 
     return () => {
+      lookAtController.dispose()
       controller.dispose()
       onDiagnosticsChange(undefined)
 
       if (controllerRef.current === controller) {
         controllerRef.current = undefined
       }
+
+      if (lookAtControllerRef.current === lookAtController) {
+        lookAtControllerRef.current = undefined
+      }
     }
-  }, [animationMappings, characterId, model, onDiagnosticsChange, rootMotion])
+  }, [animationMappings, characterId, lookAt, model, onDiagnosticsChange, rootMotion])
 
   useEffect(() => {
     if (fallbackTimerRef.current !== undefined) {
@@ -182,7 +205,11 @@ export function ThreeDModelCharacter({
     )
 
     isUsingClip.current = playback.mode === 'clip'
-    onDiagnosticsChange({ ...controller.getDiagnostics(), playback })
+    onDiagnosticsChange({
+      ...controller.getDiagnostics(),
+      playback,
+      lookAt: lookAtControllerRef.current?.getDiagnostics()
+    })
 
     if (
       playback.mode === 'procedural' &&
@@ -219,6 +246,7 @@ export function ThreeDModelCharacter({
 
     const safeDelta = Math.min(delta, 0.05)
     actionTime.current += safeDelta
+    lookAtControllerRef.current?.beforeAnimationUpdate()
     controllerRef.current?.update(safeDelta)
 
     const pose = createProceduralThreeDPose(
@@ -237,13 +265,14 @@ export function ThreeDModelCharacter({
       root.rotation.x = 0
       root.rotation.z = 0
       root.scale.setScalar(1)
-      return
+    } else {
+      root.position.set(pose.rootX, pose.rootY, 0)
+      root.rotation.x = pose.rootRotationX
+      root.rotation.z = pose.rootRotationZ
+      root.scale.setScalar(pose.rootScale)
     }
 
-    root.position.set(pose.rootX, pose.rootY, 0)
-    root.rotation.x = pose.rootRotationX
-    root.rotation.z = pose.rootRotationZ
-    root.scale.setScalar(pose.rootScale)
+    lookAtControllerRef.current?.update(safeDelta, attentionTarget, actionName)
   })
 
   return model ? (

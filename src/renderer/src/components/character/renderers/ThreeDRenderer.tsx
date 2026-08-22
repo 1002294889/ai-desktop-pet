@@ -24,6 +24,7 @@ import type { PetAction } from '../../../../../shared/pet-action'
 import { ProceduralDemoCharacter } from './three-d/ProceduralDemoCharacter'
 import { ThreeDModelCharacter } from './three-d/ThreeDModelCharacter'
 import type { ThreeDModelDiagnostics } from './three-d/ThreeDModelCharacter'
+import type { ThreeDCursorAttentionTarget } from './three-d/ThreeDLookAtController'
 import {
   DEFAULT_3D_ACTION_DURATIONS_MS,
   isDefaultLoopingThreeDAction
@@ -59,6 +60,12 @@ export function ThreeDRenderer({
   >('ready')
   const [modelDiagnostics, setModelDiagnostics] = useState<ThreeDModelDiagnostics>()
   const onCompleteRef = useRef(onComplete)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const attentionTargetRef = useRef<ThreeDCursorAttentionTarget>({
+    active: false,
+    x: 0,
+    y: 0
+  })
   const { manifest } = character
   const configuration = manifest['3d']
   const width = manifest.defaultWidth
@@ -84,6 +91,54 @@ export function ThreeDRenderer({
   useEffect(() => {
     onCompleteRef.current = onComplete
   }, [onComplete])
+
+  useEffect(() => {
+    const attentionTarget = attentionTargetRef.current
+    const clearAttention = (): void => {
+      attentionTarget.active = false
+    }
+    const updateAttention = (event: PointerEvent): void => {
+      const viewport = viewportRef.current
+
+      if (!viewport || configuration?.source !== 'model' || !configuration.lookAt) {
+        clearAttention()
+        return
+      }
+
+      const bounds = viewport.getBoundingClientRect()
+      const isInside =
+        event.clientX >= bounds.left &&
+        event.clientX <= bounds.right &&
+        event.clientY >= bounds.top &&
+        event.clientY <= bounds.bottom
+
+      if (!isInside || bounds.width <= 0 || bounds.height <= 0) {
+        clearAttention()
+        return
+      }
+
+      attentionTarget.active = true
+      attentionTarget.x = Math.max(
+        -1,
+        Math.min(1, ((event.clientX - bounds.left) / bounds.width) * 2 - 1)
+      )
+      attentionTarget.y = Math.max(
+        -1,
+        Math.min(1, 1 - ((event.clientY - bounds.top) / bounds.height) * 2)
+      )
+    }
+
+    window.addEventListener('pointermove', updateAttention, { passive: true })
+    window.addEventListener('blur', clearAttention)
+    document.documentElement.addEventListener('pointerleave', clearAttention)
+
+    return () => {
+      clearAttention()
+      window.removeEventListener('pointermove', updateAttention)
+      window.removeEventListener('blur', clearAttention)
+      document.documentElement.removeEventListener('pointerleave', clearAttention)
+    }
+  }, [configuration])
 
   useEffect(() => {
     const needsRendererFallbackTimer =
@@ -128,6 +183,7 @@ export function ThreeDRenderer({
   return (
     <ThreeDRendererErrorBoundary key={character.manifest.id}>
       <div
+        ref={viewportRef}
         className="character-3d-viewport"
         style={viewportStyle}
         data-model-state={modelLoadState}
@@ -138,7 +194,11 @@ export function ThreeDRenderer({
               'data-animation-clip': modelDiagnostics?.playback?.clipName ?? '',
               'data-loaded-clips': modelDiagnostics?.clipNames.join('|') ?? '',
               'data-skinned-meshes': modelDiagnostics?.skinnedMeshCount ?? 0,
-              'data-bones': modelDiagnostics?.boneCount ?? 0
+              'data-bones': modelDiagnostics?.boneCount ?? 0,
+              'data-look-at-head': modelDiagnostics?.lookAt?.headBone ?? '',
+              'data-look-at-left-eye': modelDiagnostics?.lookAt?.leftEyeBone ?? '',
+              'data-look-at-right-eye': modelDiagnostics?.lookAt?.rightEyeBone ?? '',
+              'data-look-at-missing': modelDiagnostics?.lookAt?.missingBones.join('|') ?? ''
             }
           : {})}
         aria-label={`${manifest.name}, ${requestedActionName}${fallbackDescription}, Three.js WebGL renderer${developmentAnimationDescription}`}
@@ -212,6 +272,8 @@ export function ThreeDRenderer({
                 emotion={emotion}
                 modelUrl={character.modelUrl}
                 characterId={manifest.id}
+                attentionTarget={attentionTargetRef.current}
+                lookAt={configuration.lookAt}
                 rootMotion={configuration.rootMotion}
                 onComplete={() => onCompleteRef.current()}
                 onDiagnosticsChange={handleModelDiagnosticsChange}
@@ -244,8 +306,16 @@ function getDevelopmentAnimationDescription(
   }
 
   const clipName = diagnostics?.playback?.clipName
+  const lookAtBones = [
+    diagnostics?.lookAt?.headBone,
+    diagnostics?.lookAt?.leftEyeBone,
+    diagnostics?.lookAt?.rightEyeBone
+  ].filter((boneName): boneName is string => Boolean(boneName))
+  const lookAtDescription = diagnostics?.lookAt?.configured
+    ? `, look-at bones ${lookAtBones.join(', ') || 'none'}`
+    : ', look-at disabled'
 
-  return `, ${diagnostics?.skinnedMeshCount ?? 0} skinned meshes, ${diagnostics?.boneCount ?? 0} bones, loaded clips ${diagnostics?.clipNames.join(', ') || 'none'}, playback ${diagnostics?.playback?.mode ?? 'none'}${clipName ? ` ${clipName}` : ''}`
+  return `, ${diagnostics?.skinnedMeshCount ?? 0} skinned meshes, ${diagnostics?.boneCount ?? 0} bones, loaded clips ${diagnostics?.clipNames.join(', ') || 'none'}, playback ${diagnostics?.playback?.mode ?? 'none'}${clipName ? ` ${clipName}` : ''}${lookAtDescription}`
 }
 
 function ThreeDFrameDriver(): null {

@@ -13,7 +13,12 @@
     "cameraPosition": [0, 0.45, 5.8],
     "modelPosition": [0, -1.35, 0],
     "modelRotation": [0, 0, 0],
-    "rootMotion": "lock-horizontal"
+    "rootMotion": "lock-horizontal",
+    "lookAt": {
+      "headBone": "Head",
+      "leftEyeBone": "LeftEye",
+      "rightEyeBone": "RightEye"
+    }
   },
   "actions": {
     "idle": { "type": "3d", "clip": "Idle", "loop": true, "fadeDurationMs": 180 },

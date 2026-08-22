@@ -91,11 +91,13 @@ await writeFile(outputPath, new Uint8Array(exported))
 const verified = await parseGlb(exported)
 let skinnedMeshCount = 0
 let boneCount = 0
+const verifiedBoneNames = new Set()
 
 verified.scene.traverse((object) => {
   if (object instanceof SkinnedMesh) {
     skinnedMeshCount += 1
     boneCount += object.skeleton.bones.length
+    object.skeleton.bones.forEach((bone) => verifiedBoneNames.add(bone.name))
   }
 })
 
@@ -105,6 +107,12 @@ if (skinnedMeshCount < 1 || boneCount < 1) {
 
 if (verified.animations.length !== clips.length) {
   throw new Error('Generated GLB did not preserve every AnimationClip')
+}
+
+for (const requiredBone of ['Head', 'LeftEye', 'RightEye']) {
+  if (!verifiedBoneNames.has(requiredBone)) {
+    throw new Error(`Generated GLB did not preserve look-at bone ${requiredBone}`)
+  }
 }
 
 console.info(`Generated ${outputPath} (${exported.byteLength} bytes)`)
@@ -126,12 +134,25 @@ function createRig() {
   const LeftLeg = namedBone('LeftLeg', [-0.34, -0.72, 0])
   const RightLeg = namedBone('RightLeg', [0.34, -0.72, 0])
   const Mouth = namedBone('Mouth', [0, -0.28, 0.8])
+  const LeftEye = namedBone('LeftEye', [-0.28, 0.1, 0.73])
+  const RightEye = namedBone('RightEye', [0.28, 0.1, 0.73])
 
   RigRoot.add(Body)
   Body.add(Head, LeftArm, RightArm, LeftLeg, RightLeg)
-  Head.add(Mouth)
+  Head.add(Mouth, LeftEye, RightEye)
 
-  return { RigRoot, Body, Head, LeftArm, RightArm, LeftLeg, RightLeg, Mouth }
+  return {
+    RigRoot,
+    Body,
+    Head,
+    LeftArm,
+    RightArm,
+    LeftLeg,
+    RightLeg,
+    Mouth,
+    LeftEye,
+    RightEye
+  }
 }
 
 function namedBone(name, position) {
@@ -197,10 +218,10 @@ function addFaceAndDetails(bones) {
   detail(bones.Body, new SphereGeometry(0.51, 20, 14), light, [0, -0.02, 0.58], [1, 1.28, 0.25])
   detail(bones.Head, new CapsuleGeometry(0.085, 0.38, 6, 12), ear, [-0.35, 0.93, 0.15], [1, 1, 0.45])
   detail(bones.Head, new CapsuleGeometry(0.085, 0.38, 6, 12), ear, [0.35, 0.93, 0.15], [1, 1, 0.45])
-  detail(bones.Head, new SphereGeometry(0.105, 16, 12), ink, [-0.28, 0.1, 0.73])
-  detail(bones.Head, new SphereGeometry(0.105, 16, 12), ink, [0.28, 0.1, 0.73])
-  detail(bones.Head, new SphereGeometry(0.029, 10, 8), light, [-0.25, 0.14, 0.81])
-  detail(bones.Head, new SphereGeometry(0.029, 10, 8), light, [0.31, 0.14, 0.81])
+  detail(bones.LeftEye, new SphereGeometry(0.105, 16, 12), ink, [0, 0, 0])
+  detail(bones.RightEye, new SphereGeometry(0.105, 16, 12), ink, [0, 0, 0])
+  detail(bones.LeftEye, new SphereGeometry(0.029, 10, 8), light, [0.03, 0.04, 0.08])
+  detail(bones.RightEye, new SphereGeometry(0.029, 10, 8), light, [0.03, 0.04, 0.08])
   detail(bones.Head, new SphereGeometry(0.18, 16, 12), light, [-0.13, -0.16, 0.72], [1, 0.8, 0.55])
   detail(bones.Head, new SphereGeometry(0.18, 16, 12), light, [0.13, -0.16, 0.72], [1, 0.8, 0.55])
   detail(bones.Head, new SphereGeometry(0.065, 12, 10), ink, [0, -0.1, 0.86], [1, 0.75, 0.62])
