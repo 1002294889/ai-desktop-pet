@@ -2,7 +2,7 @@
   "id": "three-skeletal-demo",
   "name": "Rigged 3D Test Pet",
   "renderer": "3d",
-  "version": 2,
+  "version": 3,
   "defaultWidth": 250,
   "defaultHeight": 270,
   "scale": 0.86,
@@ -24,8 +24,8 @@
     "idle": { "type": "3d", "clip": "Idle", "loop": true, "fadeDurationMs": 180 },
     "walk_left": { "type": "3d", "clip": "Walk", "loop": true, "fadeDurationMs": 160 },
     "walk_right": { "type": "3d", "clip": "Walk", "loop": true, "fadeDurationMs": 160 },
-    "sit": { "type": "3d", "clip": "Sit", "loop": true, "fadeDurationMs": 200 },
-    "sleep": { "type": "3d", "clip": "Sleep", "loop": true, "fadeDurationMs": 260 },
+    "sit": { "type": "3d", "clip": "Sit", "loop": true, "fadeDurationMs": 260 },
+    "sleep": { "type": "3d", "clip": "Sleep", "loop": true, "fadeDurationMs": 340 },
     "wake": { "type": "3d", "clip": "Wake", "loop": false, "fadeDurationMs": 220, "clampWhenFinished": true },
     "happy": {
       "type": "3d",
@@ -99,8 +99,8 @@
       "clampWhenFinished": true,
       "lookAtWeight": 0
     },
-    "jump": { "type": "3d", "clip": "Jump", "loop": false, "fadeDurationMs": 100, "clampWhenFinished": true },
-    "wave": { "type": "3d", "clip": "Wave", "loop": false, "fadeDurationMs": 140, "clampWhenFinished": true },
+    "jump": { "type": "3d", "clip": "Jump", "loop": false, "fadeDurationMs": 150, "clampWhenFinished": true },
+    "wave": { "type": "3d", "clip": "Wave", "loop": false, "fadeDurationMs": 200, "clampWhenFinished": true },
     "talk": { "type": "3d", "clip": "Talk", "loop": false, "fadeDurationMs": 100, "clampWhenFinished": true },
     "dragged": { "type": "3d", "loop": false, "durationMs": 900 },
     "dance_01": {

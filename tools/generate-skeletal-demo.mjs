@@ -7,6 +7,7 @@ import {
   BufferAttribute,
   CapsuleGeometry,
   CircleGeometry,
+  Euler,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -115,6 +116,8 @@ for (const requiredBone of [
   'Chest',
   'Neck',
   'Head',
+  'LeftEar',
+  'RightEar',
   'LeftShoulder',
   'LeftArm',
   'LeftForeArm',
@@ -148,31 +151,33 @@ function parseGlb(buffer) {
 }
 
 function createRig() {
-  const RigRoot = namedBone('RigRoot', [0, 0.72, 0])
-  const Body = namedBone('Body', [0, 0.43, 0])
-  const Chest = namedBone('Chest', [0, 0.38, 0])
-  const Neck = namedBone('Neck', [0, 0.34, 0])
-  const Head = namedBone('Head', [0, 0.28, 0])
-  const LeftShoulder = namedBone('LeftShoulder', [-0.42, 0.08, 0])
-  const LeftArm = namedBone('LeftArm', [-0.18, 0, 0])
-  const LeftForeArm = namedBone('LeftForeArm', [-0.42, 0, 0])
-  const LeftHand = namedBone('LeftHand', [-0.32, 0, 0])
-  const RightShoulder = namedBone('RightShoulder', [0.42, 0.08, 0])
-  const RightArm = namedBone('RightArm', [0.18, 0, 0])
-  const RightForeArm = namedBone('RightForeArm', [0.42, 0, 0])
-  const RightHand = namedBone('RightHand', [0.32, 0, 0])
-  const LeftLeg = namedBone('LeftLeg', [-0.28, 0, 0])
-  const LeftShin = namedBone('LeftShin', [0, -0.38, 0])
-  const LeftFoot = namedBone('LeftFoot', [0, -0.34, 0.08])
-  const RightLeg = namedBone('RightLeg', [0.28, 0, 0])
-  const RightShin = namedBone('RightShin', [0, -0.38, 0])
-  const RightFoot = namedBone('RightFoot', [0, -0.34, 0.08])
-  const Mouth = namedBone('Mouth', [0, -0.28, 0.8])
-  const LeftEye = namedBone('LeftEye', [-0.28, 0.1, 0.73])
-  const RightEye = namedBone('RightEye', [0.28, 0.1, 0.73])
+  const RigRoot = namedBone('RigRoot', [0, 0.88, 0])
+  const Body = namedBone('Body', [0, 0.48, 0])
+  const Chest = namedBone('Chest', [0, 0.4, 0])
+  const Neck = namedBone('Neck', [0, 0.28, 0])
+  const Head = namedBone('Head', [0, 0.22, 0])
+  const LeftEar = namedBone('LeftEar', [-0.28, 0.53, -0.02])
+  const RightEar = namedBone('RightEar', [0.28, 0.53, -0.02])
+  const LeftShoulder = namedBone('LeftShoulder', [-0.39, 0.02, 0])
+  const LeftArm = namedBone('LeftArm', [-0.15, -0.02, 0])
+  const LeftForeArm = namedBone('LeftForeArm', [-0.46, 0, 0])
+  const LeftHand = namedBone('LeftHand', [-0.38, 0, 0])
+  const RightShoulder = namedBone('RightShoulder', [0.39, 0.02, 0])
+  const RightArm = namedBone('RightArm', [0.15, -0.02, 0])
+  const RightForeArm = namedBone('RightForeArm', [0.46, 0, 0])
+  const RightHand = namedBone('RightHand', [0.38, 0, 0])
+  const LeftLeg = namedBone('LeftLeg', [-0.24, 0, 0])
+  const LeftShin = namedBone('LeftShin', [0, -0.44, 0.02])
+  const LeftFoot = namedBone('LeftFoot', [0, -0.41, 0.1])
+  const RightLeg = namedBone('RightLeg', [0.24, 0, 0])
+  const RightShin = namedBone('RightShin', [0, -0.44, 0.02])
+  const RightFoot = namedBone('RightFoot', [0, -0.41, 0.1])
+  const Mouth = namedBone('Mouth', [0, -0.25, 0.77])
+  const LeftEye = namedBone('LeftEye', [-0.25, 0.1, 0.69])
+  const RightEye = namedBone('RightEye', [0.25, 0.1, 0.69])
 
-  LeftArm.quaternion.setFromAxisAngle(new Vector3(0, 0, 1), 0.58)
-  RightArm.quaternion.setFromAxisAngle(new Vector3(0, 0, 1), -0.58)
+  LeftArm.quaternion.setFromAxisAngle(new Vector3(0, 0, 1), 0.7)
+  RightArm.quaternion.setFromAxisAngle(new Vector3(0, 0, 1), -0.7)
 
   RigRoot.add(Body, LeftLeg, RightLeg)
   Body.add(Chest)
@@ -188,7 +193,7 @@ function createRig() {
   LeftShin.add(LeftFoot)
   RightLeg.add(RightShin)
   RightShin.add(RightFoot)
-  Head.add(Mouth, LeftEye, RightEye)
+  Head.add(LeftEar, RightEar, Mouth, LeftEye, RightEye)
   RigRoot.updateMatrixWorld(true)
 
   return {
@@ -197,6 +202,8 @@ function createRig() {
     Chest,
     Neck,
     Head,
+    LeftEar,
+    RightEar,
     LeftShoulder,
     LeftArm,
     LeftForeArm,
@@ -240,24 +247,119 @@ function createSkinnedCharacter(skeleton, bones) {
   const rightHip = worldPosition(bones.RightLeg)
   const rightKnee = worldPosition(bones.RightShin)
   const rightAnkle = worldPosition(bones.RightFoot)
+  const leftEarBase = worldPosition(bones.LeftEar)
+  const rightEarBase = worldPosition(bones.RightEar)
   const parts = [
-    skinnedPart(new SphereGeometry(0.72, 24, 16).scale(1, 1.13, 0.8).translate(0, 1.15, 0), boneIndices.get('Body')),
-    skinnedPart(new SphereGeometry(0.84, 24, 16).scale(1.03, 0.92, 0.95).translate(0, 2.17, 0), boneIndices.get('Head')),
-    skinnedPart(capsuleBetween(leftShoulder, leftElbow, 0.18), boneIndices.get('LeftArm')),
-    skinnedPart(capsuleBetween(leftElbow, leftWrist, 0.16), boneIndices.get('LeftForeArm')),
-    skinnedPart(new SphereGeometry(0.19, 16, 12).translate(...leftWrist.toArray()), boneIndices.get('LeftHand')),
-    skinnedPart(capsuleBetween(rightShoulder, rightElbow, 0.18), boneIndices.get('RightArm')),
-    skinnedPart(capsuleBetween(rightElbow, rightWrist, 0.16), boneIndices.get('RightForeArm')),
-    skinnedPart(new SphereGeometry(0.19, 16, 12).translate(...rightWrist.toArray()), boneIndices.get('RightHand')),
-    skinnedPart(capsuleBetween(leftHip, leftKnee, 0.22), boneIndices.get('LeftLeg')),
-    skinnedPart(capsuleBetween(leftKnee, leftAnkle, 0.2), boneIndices.get('LeftShin')),
-    skinnedPart(new CapsuleGeometry(0.18, 0.18, 8, 12).rotateX(Math.PI / 2).translate(leftAnkle.x, leftAnkle.y, leftAnkle.z + 0.12), boneIndices.get('LeftFoot')),
-    skinnedPart(capsuleBetween(rightHip, rightKnee, 0.22), boneIndices.get('RightLeg')),
-    skinnedPart(capsuleBetween(rightKnee, rightAnkle, 0.2), boneIndices.get('RightShin')),
-    skinnedPart(new CapsuleGeometry(0.18, 0.18, 8, 12).rotateX(Math.PI / 2).translate(rightAnkle.x, rightAnkle.y, rightAnkle.z + 0.12), boneIndices.get('RightFoot')),
-    skinnedPart(new CapsuleGeometry(0.15, 0.52, 8, 14).translate(-0.35, 3.08, 0), boneIndices.get('Head')),
-    skinnedPart(new CapsuleGeometry(0.15, 0.52, 8, 14).translate(0.35, 3.08, 0), boneIndices.get('Head')),
-    skinnedPart(new SphereGeometry(0.25, 18, 12).translate(0.69, 0.95, -0.34), boneIndices.get('Body'))
+    skinnedPart(
+      new SphereGeometry(0.68, 28, 18)
+        .scale(0.94, 1.1, 0.78)
+        .translate(0, 1.36, 0),
+      boneIndices.get('Body')
+    ),
+    skinnedPart(
+      new SphereGeometry(0.76, 28, 18)
+        .scale(1, 0.91, 0.94)
+        .translate(0, 2.26, 0),
+      boneIndices.get('Head')
+    ),
+    skinnedLimbPart(
+      capsuleBetween(leftShoulder, leftElbow, 0.145),
+      leftShoulder,
+      leftElbow,
+      boneIndices.get('LeftArm'),
+      boneIndices.get('LeftForeArm')
+    ),
+    skinnedLimbPart(
+      capsuleBetween(leftElbow, leftWrist, 0.125),
+      leftElbow,
+      leftWrist,
+      boneIndices.get('LeftForeArm'),
+      boneIndices.get('LeftHand')
+    ),
+    skinnedPart(
+      new SphereGeometry(0.17, 18, 12)
+        .scale(1.1, 0.82, 0.78)
+        .translate(...leftWrist.toArray()),
+      boneIndices.get('LeftHand')
+    ),
+    skinnedLimbPart(
+      capsuleBetween(rightShoulder, rightElbow, 0.145),
+      rightShoulder,
+      rightElbow,
+      boneIndices.get('RightArm'),
+      boneIndices.get('RightForeArm')
+    ),
+    skinnedLimbPart(
+      capsuleBetween(rightElbow, rightWrist, 0.125),
+      rightElbow,
+      rightWrist,
+      boneIndices.get('RightForeArm'),
+      boneIndices.get('RightHand')
+    ),
+    skinnedPart(
+      new SphereGeometry(0.17, 18, 12)
+        .scale(1.1, 0.82, 0.78)
+        .translate(...rightWrist.toArray()),
+      boneIndices.get('RightHand')
+    ),
+    skinnedLimbPart(
+      capsuleBetween(leftHip, leftKnee, 0.19),
+      leftHip,
+      leftKnee,
+      boneIndices.get('LeftLeg'),
+      boneIndices.get('LeftShin')
+    ),
+    skinnedLimbPart(
+      capsuleBetween(leftKnee, leftAnkle, 0.155),
+      leftKnee,
+      leftAnkle,
+      boneIndices.get('LeftShin'),
+      boneIndices.get('LeftFoot')
+    ),
+    skinnedPart(
+      rabbitFoot(leftAnkle, -1),
+      boneIndices.get('LeftFoot')
+    ),
+    skinnedLimbPart(
+      capsuleBetween(rightHip, rightKnee, 0.19),
+      rightHip,
+      rightKnee,
+      boneIndices.get('RightLeg'),
+      boneIndices.get('RightShin')
+    ),
+    skinnedLimbPart(
+      capsuleBetween(rightKnee, rightAnkle, 0.155),
+      rightKnee,
+      rightAnkle,
+      boneIndices.get('RightShin'),
+      boneIndices.get('RightFoot')
+    ),
+    skinnedPart(
+      rabbitFoot(rightAnkle, 1),
+      boneIndices.get('RightFoot')
+    ),
+    skinnedPart(
+      new CapsuleGeometry(0.13, 0.56, 8, 16).translate(
+        leftEarBase.x,
+        leftEarBase.y + 0.3,
+        leftEarBase.z
+      ),
+      boneIndices.get('LeftEar')
+    ),
+    skinnedPart(
+      new CapsuleGeometry(0.13, 0.56, 8, 16).translate(
+        rightEarBase.x,
+        rightEarBase.y + 0.3,
+        rightEarBase.z
+      ),
+      boneIndices.get('RightEar')
+    ),
+    skinnedPart(
+      new SphereGeometry(0.23, 18, 12)
+        .scale(0.96, 1, 0.9)
+        .translate(0.62, 1.2, -0.35),
+      boneIndices.get('Body')
+    )
   ]
   const geometry = mergeGeometries(parts, false)
 
@@ -298,6 +400,57 @@ function skinnedPart(geometry, boneIndex) {
   return geometry
 }
 
+function skinnedLimbPart(
+  geometry,
+  start,
+  end,
+  startBoneIndex,
+  endBoneIndex
+) {
+  if (startBoneIndex === undefined || endBoneIndex === undefined) {
+    throw new Error('Unable to resolve generated limb bone indices')
+  }
+
+  const positions = geometry.getAttribute('position')
+  const vertexCount = positions.count
+  const indices = new Uint16Array(vertexCount * 4)
+  const weights = new Float32Array(vertexCount * 4)
+  const limb = end.clone().sub(start)
+  const lengthSquared = limb.lengthSq()
+  const vertex = new Vector3()
+
+  for (let index = 0; index < vertexCount; index += 1) {
+    vertex.fromBufferAttribute(positions, index)
+    const along =
+      lengthSquared > 0
+        ? Math.max(0, Math.min(1, vertex.clone().sub(start).dot(limb) / lengthSquared))
+        : 0
+    const endWeight = smoothstep(0.58, 1, along)
+    const offset = index * 4
+
+    indices[offset] = startBoneIndex
+    indices[offset + 1] = endBoneIndex
+    weights[offset] = 1 - endWeight
+    weights[offset + 1] = endWeight
+  }
+
+  geometry.setAttribute('skinIndex', new BufferAttribute(indices, 4))
+  geometry.setAttribute('skinWeight', new BufferAttribute(weights, 4))
+  return geometry
+}
+
+function smoothstep(edge0, edge1, value) {
+  const normalized = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)))
+  return normalized * normalized * (3 - 2 * normalized)
+}
+
+function rabbitFoot(ankle, side) {
+  return new SphereGeometry(0.2, 18, 12)
+    .scale(0.9, 0.68, 1.65)
+    .rotateY(side * 0.28)
+    .translate(ankle.x, ankle.y + 0.13, ankle.z + 0.2)
+}
+
 function worldPosition(bone) {
   return bone.getWorldPosition(new Vector3())
 }
@@ -328,18 +481,18 @@ function addFaceAndDetails(bones) {
   const blush = new MeshStandardMaterial({ color: '#e9a5c8', metalness: 0, roughness: 0.82 })
   const ear = new MeshStandardMaterial({ color: '#d4a6cf', metalness: 0, roughness: 0.84 })
 
-  detail(bones.Body, new SphereGeometry(0.51, 20, 14), light, [0, -0.02, 0.58], [1, 1.28, 0.25])
-  detail(bones.Head, new CapsuleGeometry(0.085, 0.38, 6, 12), ear, [-0.35, 0.93, 0.15], [1, 1, 0.45])
-  detail(bones.Head, new CapsuleGeometry(0.085, 0.38, 6, 12), ear, [0.35, 0.93, 0.15], [1, 1, 0.45])
-  detail(bones.LeftEye, new SphereGeometry(0.105, 16, 12), ink, [0, 0, 0])
-  detail(bones.RightEye, new SphereGeometry(0.105, 16, 12), ink, [0, 0, 0])
-  detail(bones.LeftEye, new SphereGeometry(0.029, 10, 8), light, [0.03, 0.04, 0.08])
-  detail(bones.RightEye, new SphereGeometry(0.029, 10, 8), light, [0.03, 0.04, 0.08])
-  detail(bones.Head, new SphereGeometry(0.18, 16, 12), light, [-0.13, -0.16, 0.72], [1, 0.8, 0.55])
-  detail(bones.Head, new SphereGeometry(0.18, 16, 12), light, [0.13, -0.16, 0.72], [1, 0.8, 0.55])
-  detail(bones.Head, new SphereGeometry(0.065, 12, 10), ink, [0, -0.1, 0.86], [1, 0.75, 0.62])
-  detail(bones.Head, new SphereGeometry(0.075, 12, 10), blush, [-0.52, -0.06, 0.67], [1, 0.48, 0.35])
-  detail(bones.Head, new SphereGeometry(0.075, 12, 10), blush, [0.52, -0.06, 0.67], [1, 0.48, 0.35])
+  detail(bones.Body, new SphereGeometry(0.47, 22, 16), light, [0, -0.04, 0.54], [1, 1.3, 0.24])
+  detail(bones.LeftEar, new CapsuleGeometry(0.072, 0.4, 6, 12), ear, [0, 0.3, 0.115], [1, 1, 0.42])
+  detail(bones.RightEar, new CapsuleGeometry(0.072, 0.4, 6, 12), ear, [0, 0.3, 0.115], [1, 1, 0.42])
+  detail(bones.LeftEye, new SphereGeometry(0.098, 16, 12), ink, [0, 0, 0])
+  detail(bones.RightEye, new SphereGeometry(0.098, 16, 12), ink, [0, 0, 0])
+  detail(bones.LeftEye, new SphereGeometry(0.026, 10, 8), light, [0.028, 0.035, 0.076])
+  detail(bones.RightEye, new SphereGeometry(0.026, 10, 8), light, [0.028, 0.035, 0.076])
+  detail(bones.Head, new SphereGeometry(0.165, 16, 12), light, [-0.12, -0.15, 0.69], [1, 0.78, 0.54])
+  detail(bones.Head, new SphereGeometry(0.165, 16, 12), light, [0.12, -0.15, 0.69], [1, 0.78, 0.54])
+  detail(bones.Head, new SphereGeometry(0.06, 12, 10), ink, [0, -0.095, 0.81], [1, 0.74, 0.6])
+  detail(bones.Head, new SphereGeometry(0.068, 12, 10), blush, [-0.46, -0.055, 0.64], [1, 0.45, 0.33])
+  detail(bones.Head, new SphereGeometry(0.068, 12, 10), blush, [0.46, -0.055, 0.64], [1, 0.45, 0.33])
   detail(bones.Mouth, new SphereGeometry(0.07, 12, 10), ink, [0, 0, 0.04], [1.25, 0.34, 0.55])
 }
 
@@ -353,7 +506,7 @@ function detail(parent, geometry, material, position, scale = [1, 1, 1]) {
 
 function createContactShadow() {
   const shadow = new Mesh(
-    new CircleGeometry(0.82, 32),
+    new CircleGeometry(0.86, 32),
     new MeshBasicMaterial({
       color: '#5c4c87',
       depthWrite: false,
@@ -365,43 +518,92 @@ function createContactShadow() {
   shadow.name = 'ContactShadow'
   shadow.position.set(0, 0.025, -0.04)
   shadow.rotation.x = -Math.PI / 2
-  shadow.scale.y = 0.38
+  shadow.scale.y = 0.34
   return shadow
 }
 
 function createAnimationClips(bones) {
   return [
-    clip('Idle', 2, [
-      vectorTrack('Body.scale', [0, 1, 2], [[1, 1, 1], [1.018, 0.985, 1.018], [1, 1, 1]]),
-      quaternionTrack('Head.quaternion', [0, 1, 2], 'z', [0, 0.045, 0]),
-      quaternionTrack('LeftArm.quaternion', [0, 1, 2], 'z', [0, -0.06, 0], bones.LeftArm.quaternion),
-      quaternionTrack('RightArm.quaternion', [0, 1, 2], 'z', [0, 0.06, 0], bones.RightArm.quaternion)
+    clip('Idle', 2.4, [
+      vectorTrack('RigRoot.position', [0, 1.2, 2.4], [[0, 0.88, 0], [0, 0.895, 0], [0, 0.88, 0]]),
+      vectorTrack('Body.scale', [0, 1.2, 2.4], [[1, 1, 1], [1.012, 0.99, 1.01], [1, 1, 1]]),
+      quaternionTrack('Chest.quaternion', [0, 1.2, 2.4], 'z', [0, -0.018, 0]),
+      quaternionTrack('Head.quaternion', [0, 1.2, 2.4], 'z', [-0.018, 0.032, -0.018]),
+      quaternionTrack('LeftArm.quaternion', [0, 1.2, 2.4], 'z', [0, -0.035, 0], bones.LeftArm.quaternion),
+      quaternionTrack('RightArm.quaternion', [0, 1.2, 2.4], 'z', [0, 0.035, 0], bones.RightArm.quaternion),
+      quaternionTrack('LeftForeArm.quaternion', [0, 1.2, 2.4], 'z', [0, -0.022, 0]),
+      quaternionTrack('RightForeArm.quaternion', [0, 1.2, 2.4], 'z', [0, 0.022, 0]),
+      quaternionTrack('LeftEar.quaternion', [0, 1.2, 2.4], 'z', [0.015, -0.018, 0.015]),
+      quaternionTrack('RightEar.quaternion', [0, 1.2, 2.4], 'z', [-0.015, 0.018, -0.015])
     ]),
     clip('Walk', 1, [
-      vectorTrack('RigRoot.position', [0, 0.25, 0.5, 0.75, 1], [[0, 0.72, 0], [0.12, 0.72, 0], [0.24, 0.72, 0], [0.36, 0.72, 0], [0.48, 0.72, 0]]),
-      vectorTrack('Body.position', [0, 0.25, 0.5, 0.75, 1], [[0, 0.43, 0], [0, 0.49, 0], [0, 0.43, 0], [0, 0.49, 0], [0, 0.43, 0]]),
-      quaternionTrack('LeftArm.quaternion', [0, 0.25, 0.5, 0.75, 1], 'x', [0.5, 0, -0.5, 0, 0.5], bones.LeftArm.quaternion),
-      quaternionTrack('RightArm.quaternion', [0, 0.25, 0.5, 0.75, 1], 'x', [-0.5, 0, 0.5, 0, -0.5], bones.RightArm.quaternion),
-      quaternionTrack('LeftLeg.quaternion', [0, 0.25, 0.5, 0.75, 1], 'x', [-0.55, 0, 0.55, 0, -0.55]),
-      quaternionTrack('RightLeg.quaternion', [0, 0.25, 0.5, 0.75, 1], 'x', [0.55, 0, -0.55, 0, 0.55])
+      vectorTrack('RigRoot.position', [0, 0.25, 0.5, 0.75, 1], [[0, 0.88, 0], [0.115, 0.92, 0], [0.23, 0.88, 0], [0.345, 0.92, 0], [0.46, 0.88, 0]]),
+      vectorTrack('Body.position', [0, 0.25, 0.5, 0.75, 1], [[0, 0.48, 0], [0, 0.5, 0], [0, 0.48, 0], [0, 0.5, 0], [0, 0.48, 0]]),
+      quaternionTrack('LeftArm.quaternion', [0, 0.25, 0.5, 0.75, 1], 'x', [0.42, 0, -0.42, 0, 0.42], bones.LeftArm.quaternion),
+      quaternionTrack('RightArm.quaternion', [0, 0.25, 0.5, 0.75, 1], 'x', [-0.42, 0, 0.42, 0, -0.42], bones.RightArm.quaternion),
+      quaternionTrack('LeftLeg.quaternion', [0, 0.25, 0.5, 0.75, 1], 'x', [-0.48, 0, 0.48, 0, -0.48]),
+      quaternionTrack('RightLeg.quaternion', [0, 0.25, 0.5, 0.75, 1], 'x', [0.48, 0, -0.48, 0, 0.48]),
+      quaternionTrack('LeftShin.quaternion', [0, 0.25, 0.5, 0.75, 1], 'x', [0.2, 0.08, -0.14, 0.08, 0.2]),
+      quaternionTrack('RightShin.quaternion', [0, 0.25, 0.5, 0.75, 1], 'x', [-0.14, 0.08, 0.2, 0.08, -0.14])
     ]),
-    clip('Sit', 1.4, [
-      vectorTrack('Body.position', [0, 0.7, 1.4], [[0, 0.14, 0], [0, 0.12, 0], [0, 0.14, 0]]),
-      quaternionTrack('LeftLeg.quaternion', [0, 1.4], 'x', [-1.05, -1.05]),
-      quaternionTrack('RightLeg.quaternion', [0, 1.4], 'x', [-1.05, -1.05]),
-      quaternionTrack('Head.quaternion', [0, 0.7, 1.4], 'z', [-0.03, 0.03, -0.03])
+    clip('Sit', 2, [
+      vectorTrack('Body.position', [0, 1, 2], [[0, 0.2, 0], [0, 0.185, 0], [0, 0.2, 0]]),
+      vectorTrack('Body.scale', [0, 1, 2], [[1.02, 0.98, 1], [1.03, 0.965, 1.01], [1.02, 0.98, 1]]),
+      eulerTrack('LeftLeg.quaternion', [0, 2], [[-1.02, 0, -0.26], [-1.02, 0, -0.26]]),
+      eulerTrack('RightLeg.quaternion', [0, 2], [[-1.02, 0, 0.26], [-1.02, 0, 0.26]]),
+      eulerTrack('LeftShin.quaternion', [0, 2], [[1.2, 0, 0.2], [1.2, 0, 0.2]]),
+      eulerTrack('RightShin.quaternion', [0, 2], [[1.2, 0, -0.2], [1.2, 0, -0.2]]),
+      quaternionTrack('LeftFoot.quaternion', [0, 2], 'x', [-0.24, -0.24]),
+      quaternionTrack('RightFoot.quaternion', [0, 2], 'x', [-0.24, -0.24]),
+      quaternionTrack('LeftArm.quaternion', [0, 2], 'z', [-0.18, -0.18], bones.LeftArm.quaternion),
+      quaternionTrack('RightArm.quaternion', [0, 2], 'z', [0.18, 0.18], bones.RightArm.quaternion),
+      quaternionTrack('Head.quaternion', [0, 1, 2], 'z', [-0.025, 0.028, -0.025]),
+      quaternionTrack('LeftEar.quaternion', [0, 1, 2], 'z', [0.04, 0.015, 0.04]),
+      quaternionTrack('RightEar.quaternion', [0, 1, 2], 'z', [-0.04, -0.015, -0.04])
     ]),
-    clip('Sleep', 2.4, [
-      quaternionTrack('RigRoot.quaternion', [0, 1.2, 2.4], 'z', [0.68, 0.68, 0.68]),
-      vectorTrack('RigRoot.position', [0, 1.2, 2.4], [[0, 0.24, 0], [0, 0.26, 0], [0, 0.24, 0]]),
-      vectorTrack('Body.scale', [0, 1.2, 2.4], [[1, 1, 1], [1.025, 0.98, 1.02], [1, 1, 1]])
+    clip('Sleep', 2.8, [
+      eulerTrack('RigRoot.quaternion', [0, 1.4, 2.8], [[0.04, 0, 1.49], [0.035, 0, 1.49], [0.04, 0, 1.49]]),
+      vectorTrack('RigRoot.position', [0, 1.4, 2.8], [[0, 0.76, 0], [0, 0.775, 0], [0, 0.76, 0]]),
+      vectorTrack('Body.scale', [0, 1.4, 2.8], [[1.03, 0.97, 1.01], [1.055, 0.955, 1.025], [1.03, 0.97, 1.01]]),
+      quaternionTrack('Head.quaternion', [0, 1.4, 2.8], 'z', [-0.14, -0.12, -0.14]),
+      eulerTrack('LeftShoulder.quaternion', [0, 2.8], [[0, 1.02, 0], [0, 1.02, 0]]),
+      eulerTrack('RightShoulder.quaternion', [0, 2.8], [[0, -1.02, 0], [0, -1.02, 0]]),
+      eulerTrack('LeftArm.quaternion', [0, 2.8], [[0.18, 0, -0.18], [0.18, 0, -0.18]], bones.LeftArm.quaternion),
+      eulerTrack('RightArm.quaternion', [0, 2.8], [[-0.18, 0, 0.18], [-0.18, 0, 0.18]], bones.RightArm.quaternion),
+      quaternionTrack('LeftForeArm.quaternion', [0, 2.8], 'z', [-0.82, -0.82]),
+      quaternionTrack('RightForeArm.quaternion', [0, 2.8], 'z', [0.82, 0.82]),
+      eulerTrack('LeftLeg.quaternion', [0, 2.8], [[-1.0, 0, -0.24], [-1.0, 0, -0.24]]),
+      eulerTrack('RightLeg.quaternion', [0, 2.8], [[-0.92, 0, 0.22], [-0.92, 0, 0.22]]),
+      eulerTrack('LeftShin.quaternion', [0, 2.8], [[1.22, 0, 0.22], [1.22, 0, 0.22]]),
+      eulerTrack('RightShin.quaternion', [0, 2.8], [[1.15, 0, -0.2], [1.15, 0, -0.2]]),
+      quaternionTrack('LeftFoot.quaternion', [0, 2.8], 'x', [-0.32, -0.32]),
+      quaternionTrack('RightFoot.quaternion', [0, 2.8], 'x', [-0.28, -0.28]),
+      quaternionTrack('LeftEar.quaternion', [0, 1.4, 2.8], 'z', [0.16, 0.19, 0.16]),
+      quaternionTrack('RightEar.quaternion', [0, 1.4, 2.8], 'z', [0.08, 0.11, 0.08]),
+      vectorTrack('LeftEye.scale', [0, 2.8], [[1, 0.12, 1], [1, 0.12, 1]]),
+      vectorTrack('RightEye.scale', [0, 2.8], [[1, 0.12, 1], [1, 0.12, 1]])
     ]),
-    clip('Wake', 1, [
-      quaternionTrack('RigRoot.quaternion', [0, 0.45, 1], 'z', [0.68, 0.22, 0]),
-      vectorTrack('RigRoot.position', [0, 0.45, 1], [[0, 0.24, 0], [0, 0.56, 0], [0, 0.72, 0]])
+    clip('Wake', 1.25, [
+      eulerTrack('RigRoot.quaternion', [0, 0.58, 1.25], [[0.04, 0, 1.49], [0.02, 0, 0.58], [0, 0, 0]]),
+      vectorTrack('RigRoot.position', [0, 0.58, 1.25], [[0, 0.76, 0], [0, 0.68, 0], [0, 0.88, 0]]),
+      quaternionTrack('Head.quaternion', [0, 0.58, 1.25], 'z', [-0.14, -0.05, 0]),
+      eulerTrack('LeftShoulder.quaternion', [0, 0.58, 1.25], [[0, 1.02, 0], [0, 0.35, 0], [0, 0, 0]]),
+      eulerTrack('RightShoulder.quaternion', [0, 0.58, 1.25], [[0, -1.02, 0], [0, -0.35, 0], [0, 0, 0]]),
+      eulerTrack('LeftArm.quaternion', [0, 0.58, 1.25], [[0.18, 0, -0.18], [0.08, 0, -0.08], [0, 0, 0]], bones.LeftArm.quaternion),
+      eulerTrack('RightArm.quaternion', [0, 0.58, 1.25], [[-0.18, 0, 0.18], [-0.08, 0, 0.08], [0, 0, 0]], bones.RightArm.quaternion),
+      quaternionTrack('LeftForeArm.quaternion', [0, 0.58, 1.25], 'z', [-0.82, -0.28, 0]),
+      quaternionTrack('RightForeArm.quaternion', [0, 0.58, 1.25], 'z', [0.82, 0.28, 0]),
+      eulerTrack('LeftLeg.quaternion', [0, 0.58, 1.25], [[-1, 0, -0.24], [-0.35, 0, -0.08], [0, 0, 0]]),
+      eulerTrack('RightLeg.quaternion', [0, 0.58, 1.25], [[-0.92, 0, 0.22], [-0.32, 0, 0.07], [0, 0, 0]]),
+      eulerTrack('LeftShin.quaternion', [0, 0.58, 1.25], [[1.22, 0, 0.22], [0.45, 0, 0.08], [0, 0, 0]]),
+      eulerTrack('RightShin.quaternion', [0, 0.58, 1.25], [[1.15, 0, -0.2], [0.42, 0, -0.07], [0, 0, 0]]),
+      vectorTrack('LeftEye.scale', [0, 0.42, 1.25], [[1, 0.12, 1], [1, 0.12, 1], [1, 1, 1]]),
+      vectorTrack('RightEye.scale', [0, 0.42, 1.25], [[1, 0.12, 1], [1, 0.12, 1], [1, 1, 1]]),
+      quaternionTrack('LeftEar.quaternion', [0, 0.58, 1.25], 'z', [0.16, -0.08, 0]),
+      quaternionTrack('RightEar.quaternion', [0, 0.58, 1.25], 'z', [0.08, 0.06, 0])
     ]),
     clip('Happy', 1.2, [
-      vectorTrack('RigRoot.position', [0, 0.3, 0.6, 0.9, 1.2], [[0, 0.72, 0], [0, 1.02, 0], [0, 0.72, 0], [0, 1.02, 0], [0, 0.72, 0]]),
+      vectorTrack('RigRoot.position', [0, 0.3, 0.6, 0.9, 1.2], [[0, 0.88, 0], [0, 1.18, 0], [0, 0.88, 0], [0, 1.18, 0], [0, 0.88, 0]]),
       quaternionTrack('LeftArm.quaternion', [0, 0.3, 0.9, 1.2], 'z', [0, -1.65, -1.5, 0], bones.LeftArm.quaternion),
       quaternionTrack('RightArm.quaternion', [0, 0.3, 0.9, 1.2], 'z', [0, 1.65, 1.5, 0], bones.RightArm.quaternion)
     ]),
@@ -410,16 +612,31 @@ function createAnimationClips(bones) {
       quaternionTrack('LeftArm.quaternion', [0, 0.25, 0.75, 1], 'z', [0, 0.7, 0.7, 0], bones.LeftArm.quaternion),
       quaternionTrack('RightArm.quaternion', [0, 0.25, 0.75, 1], 'z', [0, -0.7, -0.7, 0], bones.RightArm.quaternion)
     ]),
-    clip('Jump', 0.95, [
-      vectorTrack('RigRoot.position', [0, 0.14, 0.48, 0.78, 0.95], [[0, 0.72, 0], [0.06, 0.65, 0], [0.16, 1.44, 0], [0.26, 0.92, 0], [0.32, 0.72, 0]]),
-      vectorTrack('Body.scale', [0, 0.14, 0.48, 0.78, 0.95], [[1, 1, 1], [1.1, 0.84, 1.04], [0.96, 1.09, 0.98], [1.06, 0.9, 1.02], [1, 1, 1]]),
-      quaternionTrack('LeftArm.quaternion', [0, 0.25, 0.7, 0.95], 'z', [0, -1.45, -1.45, 0], bones.LeftArm.quaternion),
-      quaternionTrack('RightArm.quaternion', [0, 0.25, 0.7, 0.95], 'z', [0, 1.45, 1.45, 0], bones.RightArm.quaternion)
+    clip('Jump', 1.65, [
+      vectorTrack('RigRoot.position', [0, 0.18, 0.46, 0.78, 1.02, 1.32, 1.48, 1.65], [[0, 0.88, 0], [0, 0.7, 0], [0, 1.28, 0], [0, 1.62, 0], [0, 1.6, 0], [0, 1.18, 0], [0, 0.7, 0], [0, 0.88, 0]]),
+      vectorTrack('Body.scale', [0, 0.18, 0.46, 0.78, 1.02, 1.32, 1.48, 1.65], [[1, 1, 1], [1.08, 0.86, 1.04], [0.96, 1.08, 0.98], [0.95, 1.11, 0.97], [0.96, 1.09, 0.98], [1.02, 0.96, 1.01], [1.09, 0.84, 1.04], [1, 1, 1]]),
+      quaternionTrack('LeftArm.quaternion', [0, 0.18, 0.46, 0.78, 1.02, 1.32, 1.48, 1.65], 'z', [0, -0.42, -1.55, -2.02, -2.02, -1.35, -0.65, 0], bones.LeftArm.quaternion),
+      quaternionTrack('RightArm.quaternion', [0, 0.18, 0.46, 0.78, 1.02, 1.32, 1.48, 1.65], 'z', [0, 0.42, 1.55, 2.02, 2.02, 1.35, 0.65, 0], bones.RightArm.quaternion),
+      quaternionTrack('LeftForeArm.quaternion', [0, 0.18, 0.78, 1.02, 1.48, 1.65], 'z', [0, -0.22, -0.38, -0.38, -0.18, 0]),
+      quaternionTrack('RightForeArm.quaternion', [0, 0.18, 0.78, 1.02, 1.48, 1.65], 'z', [0, 0.22, 0.38, 0.38, 0.18, 0]),
+      eulerTrack('LeftLeg.quaternion', [0, 0.18, 0.46, 0.78, 1.02, 1.32, 1.48, 1.65], [[0, 0, 0], [-0.7, 0, -0.22], [0.08, 0, -0.08], [-0.42, 0, -0.32], [-0.42, 0, -0.32], [-0.18, 0, -0.18], [-0.72, 0, -0.24], [0, 0, 0]]),
+      eulerTrack('RightLeg.quaternion', [0, 0.18, 0.46, 0.78, 1.02, 1.32, 1.48, 1.65], [[0, 0, 0], [-0.7, 0, 0.22], [0.08, 0, 0.08], [-0.42, 0, 0.32], [-0.42, 0, 0.32], [-0.18, 0, 0.18], [-0.72, 0, 0.24], [0, 0, 0]]),
+      eulerTrack('LeftShin.quaternion', [0, 0.18, 0.46, 0.78, 1.02, 1.32, 1.48, 1.65], [[0, 0, 0], [1.15, 0, 0.2], [-0.08, 0, 0.06], [0.78, 0, 0.28], [0.78, 0, 0.28], [0.35, 0, 0.16], [1.18, 0, 0.22], [0, 0, 0]]),
+      eulerTrack('RightShin.quaternion', [0, 0.18, 0.46, 0.78, 1.02, 1.32, 1.48, 1.65], [[0, 0, 0], [1.15, 0, -0.2], [-0.08, 0, -0.06], [0.78, 0, -0.28], [0.78, 0, -0.28], [0.35, 0, -0.16], [1.18, 0, -0.22], [0, 0, 0]]),
+      quaternionTrack('LeftFoot.quaternion', [0, 0.18, 0.78, 1.02, 1.48, 1.65], 'x', [0, -0.3, -0.18, -0.18, -0.32, 0]),
+      quaternionTrack('RightFoot.quaternion', [0, 0.18, 0.78, 1.02, 1.48, 1.65], 'x', [0, -0.3, -0.18, -0.18, -0.32, 0]),
+      quaternionTrack('LeftEar.quaternion', [0, 0.18, 0.46, 0.78, 1.02, 1.48, 1.65], 'z', [0, 0.08, -0.06, -0.12, -0.12, 0.1, 0]),
+      quaternionTrack('RightEar.quaternion', [0, 0.18, 0.46, 0.78, 1.02, 1.48, 1.65], 'z', [0, -0.08, 0.06, 0.12, 0.12, -0.1, 0])
     ]),
-    clip('Wave', 1.35, [
-      quaternionTrack('RightArm.quaternion', [0, 0.2, 0.42, 0.64, 0.86, 1.08, 1.35], 'z', [0, 2.45, 2.72, 2.35, 2.72, 2.45, 0], bones.RightArm.quaternion),
-      quaternionTrack('Head.quaternion', [0, 0.3, 1.05, 1.35], 'z', [0, -0.1, -0.08, 0]),
-      quaternionTrack('Body.quaternion', [0, 0.3, 1.05, 1.35], 'z', [0, -0.025, -0.025, 0])
+    clip('Wave', 1.7, [
+      eulerTrack('RightShoulder.quaternion', [0, 0.22, 1.42, 1.7], [[0, 0, 0], [0, 0, 0.04], [0, 0, 0.04], [0, 0, 0]]),
+      quaternionTrack('RightArm.quaternion', [0, 0.22, 1.42, 1.7], 'z', [0, 1.55, 1.55, 0], bones.RightArm.quaternion),
+      quaternionTrack('RightForeArm.quaternion', [0, 0.22, 0.46, 0.7, 0.94, 1.18, 1.42, 1.7], 'z', [0, 0.75, 1.08, 0.66, 1.08, 0.66, 0.75, 0]),
+      eulerTrack('RightHand.quaternion', [0, 0.22, 0.46, 0.7, 0.94, 1.18, 1.42, 1.7], [[0, 0, 0], [0, 0.12, 0], [0, -0.18, -0.22], [0, 0.18, 0.24], [0, -0.18, -0.22], [0, 0.18, 0.24], [0, 0.08, 0], [0, 0, 0]]),
+      quaternionTrack('Head.quaternion', [0, 0.3, 1.35, 1.7], 'z', [0, -0.09, -0.07, 0]),
+      quaternionTrack('Chest.quaternion', [0, 0.3, 1.35, 1.7], 'z', [0, -0.035, -0.035, 0]),
+      quaternionTrack('LeftEar.quaternion', [0, 0.35, 1.35, 1.7], 'z', [0, 0.05, 0.03, 0]),
+      quaternionTrack('RightEar.quaternion', [0, 0.35, 1.35, 1.7], 'z', [0, -0.04, -0.025, 0])
     ]),
     clip('Talk', 1.1, [
       vectorTrack('Mouth.scale', [0, 0.18, 0.36, 0.55, 0.75, 0.94, 1.1], [[1, 1, 1], [1, 2.5, 1], [1, 0.7, 1], [1, 2.1, 1], [1, 0.75, 1], [1, 1.8, 1], [1, 1, 1]]),
@@ -447,6 +664,17 @@ function quaternionTrack(name, times, axis, angles, restQuaternion = new Quatern
     restQuaternion
       .clone()
       .multiply(new Quaternion().setFromAxisAngle(direction, angle))
+      .toArray()
+  )
+
+  return new QuaternionKeyframeTrack(name, times, values)
+}
+
+function eulerTrack(name, times, rotations, restQuaternion = new Quaternion()) {
+  const values = rotations.flatMap(([x, y, z]) =>
+    restQuaternion
+      .clone()
+      .multiply(new Quaternion().setFromEuler(new Euler(x, y, z, 'XYZ')))
       .toArray()
   )
 

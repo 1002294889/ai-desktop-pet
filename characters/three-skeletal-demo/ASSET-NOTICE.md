@@ -6,12 +6,15 @@ for this repository by `tools/generate-skeletal-demo.mjs`.
 It contains no downloaded character model, texture, motion-capture data, or
 third-party character design. It is intentionally simple and exists only to
 verify the application's GLB, SkinnedMesh, skeleton, and AnimationClip pipeline.
-Its development skeleton includes explicit shoulder, upper/lower arm, hand,
-upper/lower leg, and foot joints so retargeted elbows, wrists, knees, and feet
-can be visually inspected.
+Its development skeleton includes articulated ears plus explicit shoulder,
+upper/lower arm, hand, upper/lower leg, and foot joints. Limb geometry blends
+across adjacent joints so shoulders, elbows, wrists, hips, knees, and ankles can
+be visually inspected without relying on downloaded production assets.
 
 The generated clips are: Idle, Walk, Sit, Sleep, Wake, Happy, Angry, Jump, Wave,
-and Talk.
+and Talk. Sit, Sleep, Jump, and Wave include deliberately articulated full-limb
+poses; Sleep is a side-lying curled pose rather than a standing pose tilted in
+place.
 
 `assets/animations/celebrate.glb` and
 `assets/animations/groove-a-pose.glb` are also original development assets.
@@ -23,5 +26,5 @@ rest-pose, bone-orientation, and proportion-safe humanoid retargeting. Neither
 file contains a downloaded model, motion-capture data, texture, or third-party
 animation.
 
-Both generated development assets and their source generators are dedicated to
+All generated development assets and their source generators are dedicated to
 the public domain under CC0 1.0. See https://creativecommons.org/publicdomain/zero/1.0/.
