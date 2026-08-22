@@ -155,4 +155,5 @@ release/
 
 # Local Blender authoring workspace and disposable Rae preview exports
 characters/rae-red-panda/blender/work/
+characters/rae-red-panda/blender/*.blend1
 characters/rae-red-panda/assets/animations/*.temporary.glb

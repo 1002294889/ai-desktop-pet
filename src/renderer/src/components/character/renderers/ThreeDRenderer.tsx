@@ -149,8 +149,11 @@ export function ThreeDRenderer({
       renderedActionName === requestedActionName
         ? (action.definition.loop ?? false)
         : isDefaultLoopingThreeDAction(requestedActionName)
+    const actionHolds =
+      renderedActionName === requestedActionName &&
+      action.definition.holdWhenFinished === true
 
-    if (!needsRendererFallbackTimer || actionLoops) {
+    if (!needsRendererFallbackTimer || actionLoops || actionHolds) {
       return
     }
 

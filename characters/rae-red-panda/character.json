@@ -41,16 +41,20 @@
       "type": "3d",
       "source": "assets/animations/rae-actions.glb",
       "clip": "RaeSit",
-      "loop": true,
+      "loop": false,
       "fadeDurationMs": 300,
+      "clampWhenFinished": true,
+      "holdWhenFinished": true,
       "lookAtWeight": 0.7
     },
     "sleep": {
       "type": "3d",
       "source": "assets/animations/rae-actions.glb",
       "clip": "RaeSleep",
-      "loop": true,
+      "loop": false,
       "fadeDurationMs": 420,
+      "clampWhenFinished": true,
+      "holdWhenFinished": true,
       "lookAtWeight": 0
     },
     "wake": {

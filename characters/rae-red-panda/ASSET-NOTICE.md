@@ -27,17 +27,17 @@ The visible character mesh contains 5,684 triangles. The GLB contains one
 embedded animation clips. The unused pistol geometry remains in the binary for
 source-layout stability but is not instantiated or rendered.
 
-`assets/animations/rae-actions.glb` currently contains the repository's
-temporary development clips for jump, sit, sleep, and wake. Those clips were
-generated against Rae's target rig by `tools/generate-rae-actions.mjs`; they
-are not considered finished animation. The generator now writes only the
-ignored `rae-actions.temporary.glb` preview so it cannot overwrite an
-artist-authored runtime asset.
+`assets/animations/rae-actions.glb` is an original Blender-authored,
+animation-only asset created directly on Rae's 43-bone `CharacterArmature` for
+this repository. Its editable source is `blender/rae-core-actions.blend`, and
+the authoring, visual-review, export, and binding-validation helpers live under
+`tools/blender/` and `tools/validate-rae-actions.mjs`. It contains the clips
+`RaeJump`, `RaeSit`, `RaeSleep`, and `RaeWake`, with no mesh, material, or
+texture.
 
-The permanent runtime slot is still `assets/animations/rae-actions.glb`.
-Following `blender/README.md`, a Blender-authored animation-only GLB can replace
-that file without changing `character.json` or any animation runtime code. The
-required clip names are `RaeJump`, `RaeSit`, `RaeSleep`, and `RaeWake`.
+The former Phase 5.9 procedural motion generator remains only as a development
+fallback and writes the ignored `rae-actions.temporary.glb` preview. It cannot
+overwrite the Blender-authored runtime asset.
 
 `assets/animations/celebrate.glb` and `groove-a-pose.glb` are original CC0
 development motion assets from this repository. They are loaded only as

@@ -253,6 +253,7 @@ export function ThreeDModelCharacter({
 
     if (
       playback.mode === 'procedural' &&
+      !definition.holdWhenFinished &&
       !(definition.loop ?? isDefaultLoopingThreeDAction(actionName))
     ) {
       fallbackTimerRef.current = window.setTimeout(() => {

@@ -28,7 +28,7 @@ const DEVELOPMENT_ACTION_DURATIONS: Partial<Record<AutonomousAction, number>> = 
   walk_left: 60_000,
   walk_right: 60_000,
   sit: 5_000,
-  sleep: 3_000
+  sleep: 12_000
 }
 
 export function useDeveloperActionShortcuts(

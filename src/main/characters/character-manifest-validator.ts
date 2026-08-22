@@ -210,6 +210,7 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
     const durationMs = value.durationMs
     const fadeDurationMs = value.fadeDurationMs
     const clampWhenFinished = value.clampWhenFinished
+    const holdWhenFinished = value.holdWhenFinished
     const clip = readOptionalString(
       value,
       'clip',
@@ -277,6 +278,21 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
     }
 
     if (
+      holdWhenFinished !== undefined &&
+      typeof holdWhenFinished !== 'boolean'
+    ) {
+      throw new Error(
+        `${actionSource}: "holdWhenFinished" must be a boolean when provided`
+      )
+    }
+
+    if (holdWhenFinished === true && loop === true) {
+      throw new Error(
+        `${actionSource}: "holdWhenFinished" cannot be combined with "loop": true`
+      )
+    }
+
+    if (
       lookAtWeight !== undefined &&
       (typeof lookAtWeight !== 'number' ||
         !Number.isFinite(lookAtWeight) ||
@@ -297,6 +313,7 @@ function validateAction(actionName: string, value: unknown, source: string): Cha
       ...(typeof clampWhenFinished === 'boolean'
         ? { clampWhenFinished }
         : {}),
+      ...(typeof holdWhenFinished === 'boolean' ? { holdWhenFinished } : {}),
       ...(typeof lookAtWeight === 'number' ? { lookAtWeight } : {})
     }
 

@@ -79,6 +79,7 @@ export interface ThreeDCharacterAction extends CharacterActionBase {
   durationMs?: number
   fadeDurationMs?: number
   clampWhenFinished?: boolean
+  holdWhenFinished?: boolean
   lookAtWeight?: number
 }
 

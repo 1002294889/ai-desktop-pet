@@ -1,8 +1,21 @@
 # Rae Blender Animation Workflow
 
-This workflow replaces Rae's temporary `Jump`, `Sit`, `Sleep`, and `Wake`
-motion with artist-authored clips made on Rae's actual armature. It does not
-retarget another character and does not generate poses in application code.
+This workflow maintains Rae's Blender-authored `Jump`, `Sit`, `Sleep`, and
+`Wake` motion on her actual armature. It does not retarget another character
+and does not generate poses in application code.
+
+The repository's editable, reviewed source file is:
+
+```text
+characters/rae-red-panda/blender/rae-core-actions.blend
+```
+
+It is produced on Rae's imported armature by
+`tools/blender/author-rae-core-actions.py`. The script preserves Rae's original
+artist-authored Jump/Jump_Idle/Jump_Land motion as the basis of the complete
+jump and creates editable Blender pose beats for sit, sleep, and wake. Final
+acceptance still requires the rendered review described below; keyed data alone
+is not considered visual verification.
 
 The application already expects one external animation-only file:
 
@@ -24,6 +37,34 @@ RaeWake
 manifest change.
 
 ## Prepare the authoring file
+
+To regenerate the tracked core Action source from Rae's shipped GLB, run:
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender \
+  --background \
+  --factory-startup \
+  --python tools/blender/author-rae-core-actions.py \
+  -- \
+  --model characters/rae-red-panda/assets/rae-red-panda.glb \
+  --output characters/rae-red-panda/blender/rae-core-actions.blend
+```
+
+Render its required start/middle/extreme/end review poses with:
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender \
+  --background \
+  characters/rae-red-panda/blender/rae-core-actions.blend \
+  --python tools/blender/render-rae-action-review.py \
+  -- \
+  --output characters/rae-red-panda/blender/work/review
+```
+
+Open the `.blend` interactively for curve and playback refinement whenever a
+rendered review reveals an unnatural joint, silhouette, balance, or contact.
+
+For a separate blank manual authoring copy, use the preparation helper below.
 
 On macOS with Blender 5.2 installed at the standard location, run from the
 repository root:

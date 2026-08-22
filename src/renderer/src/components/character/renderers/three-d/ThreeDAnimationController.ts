@@ -210,7 +210,7 @@ export class ThreeDAnimationController {
     }
 
     this.activeAction = nextAction
-    this.activeCompletion = loop
+    this.activeCompletion = loop || definition.holdWhenFinished
       ? undefined
       : {
           action: nextAction,
